@@ -125,3 +125,12 @@ _modules/*
 
 /results/
 /phpunit*.xml
+
+.phpunit.cache/
+/build/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.claude/
+.gemini/
+
