@@ -42,6 +42,7 @@
                                         <form action="<?= base_url('admin/wisata/delete/' . $w['wisata_id']) ?>"
                                             method="post"
                                             onsubmit="return confirm('Yakin ingin menghapus?')">
+    <?= csrf_field() ?>
                                             <button type="submit" class="btn btn-sm btn-danger">
                                                 <i class="fas fa-trash"></i>
                                             </button>

@@ -31,29 +31,30 @@ $routes->get('destinasi/detail/(:num)', 'Destinasi::detail/$1');
 
 $routes->group('auth', function ($routes) {
     $routes->get('login', 'Auth::login');
-    $routes->post('doLogin', 'Auth::doLogin'); 
+    $routes->post('doLogin', 'Auth::doLogin', ['filter' => 'loginThrottle']);
     $routes->get('register', 'Auth::register');
-    $routes->post('doRegister', 'Auth::doRegister'); 
-    $routes->get('logout', 'Auth::logout');
+    $routes->post('doRegister', 'Auth::doRegister', ['filter' => 'loginThrottle']);
+    $routes->post('logout', 'Auth::logout');
 });
 
 $routes->group('', ['filter' => 'auth'], function ($routes) {
     $routes->get('user_home', 'UserHome::index');
 
     $routes->post('destinasi/addReview', 'Destinasi::addReview');
-    $routes->get('destinasi/review/delete/(:num)', 'Destinasi::deleteReview/$1');
+    $routes->post('destinasi/review/delete/(:num)', 'Destinasi::deleteReview/$1');
 
     $routes->get('wishlist', 'Wishlist::index');
-    $routes->get('wishlist/add/(:num)', 'Wishlist::add/$1');
-    $routes->get('wishlist/remove/(:num)', 'Wishlist::remove/$1');
+    $routes->post('wishlist/add/(:num)', 'Wishlist::add/$1');
+    $routes->post('wishlist/remove/(:num)', 'Wishlist::remove/$1');
 
     $routes->get('booking', 'Booking::index');
     $routes->get('booking/pembelian/(:num)', 'Booking::create/$1');
     $routes->post('booking/store', 'Booking::store');
 
     $routes->get('riwayat', 'Riwayat::index');
-    $routes->get('riwayat/delete/(:num)', 'Riwayat::delete/$1');
-    $routes->get('riwayat/cancel/(:num)', 'Riwayat::cancel/$1');
+    $routes->post('riwayat/delete/(:num)', 'Riwayat::delete/$1');
+    $routes->post('riwayat/restore/(:num)', 'Riwayat::restore/$1');
+    $routes->post('riwayat/cancel/(:num)', 'Riwayat::cancel/$1');
     $routes->get('riwayat/tiket/(:num)', 'Riwayat::showTicket/$1'); 
 
     $routes->get('profile', 'Profile::index');
@@ -70,7 +71,6 @@ $routes->group('admin', ['filter' => 'admin'], function ($routes) {
     $routes->get('review', 'Admin\Review::index');
     $routes->get('booking', 'Admin\Booking::index');
     $routes->get('berita', 'Admin\Berita::index');
-    $routes->get('berita/detail/(:num)', 'Berita::detail/$1');
     $routes->get('wisata/create', 'Admin\Wisata::create');
     $routes->post('wisata/store', 'Admin\Wisata::store');
     $routes->get('wisata/edit/(:num)', 'Admin\Wisata::edit/$1');
@@ -86,6 +86,9 @@ $routes->group('admin', ['filter' => 'admin'], function ($routes) {
     $routes->post('review/delete/(:num)', 'Admin\Review::delete/$1');
 
     $routes->post('booking/delete/(:num)', 'Admin\Booking::delete/$1');
+    $routes->post('booking/restore/(:num)', 'Admin\Booking::restore/$1');
+    $routes->post('booking/confirm-payment/(:num)', 'Admin\Booking::confirmPayment/$1');
+    $routes->post('booking/complete/(:num)', 'Admin\Booking::complete/$1');
 
     $routes->get('berita/create', 'Admin\Berita::create');
     $routes->post('berita/store', 'Admin\Berita::store');
@@ -94,5 +97,5 @@ $routes->group('admin', ['filter' => 'admin'], function ($routes) {
     $routes->post('berita/delete/(:num)', 'Admin\Berita::delete/$1');
     $routes->post('berita/import', 'Admin\Berita::import');
 
-    $routes->get('logout', 'Auth::logout');
+    $routes->post('logout', 'Auth::logout');
 });

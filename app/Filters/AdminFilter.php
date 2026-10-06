@@ -10,17 +10,17 @@ class AdminFilter implements FilterInterface
 {
     public function before(RequestInterface $request, $arguments = null)
     {
-        if (!session()->get('isLoggedIn')) {
-            return redirect()->to('/auth/login')->with('error', 'Silahkan login terlebih dahulu');
+        $authResponse = (new AuthFilter())->before($request);
+        if ($authResponse) {
+            return $authResponse;
         }
-
-        if (session()->get('role') !== 'admin') {
-            return redirect()->to('/')->with('error', 'Akses ditolak. Anda bukan admin');
+        if (session('role') !== 'admin') {
+            return service('response')->setStatusCode(403)->setBody('Akses ditolak. Halaman ini hanya untuk admin.');
         }
     }
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
-
+        $response->setHeader('Cache-Control', 'no-store');
     }
 }

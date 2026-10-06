@@ -25,20 +25,23 @@ class Users extends BaseController
     public function store()
     {
         $rules = [
-            'username' => 'required|is_unique[users.username]',
-            'email' => 'required|valid_email|is_unique[users.email]',
-            'password' => 'required|min_length[6]',
-            'role' => 'required'
+            'username' => 'required|min_length[3]|max_length[50]|alpha_dash|is_unique[users.username]',
+            'email' => 'required|valid_email|max_length[254]|is_unique[users.email]',
+            'nama' => 'required|min_length[2]|max_length[100]',
+            'password' => 'required|min_length[12]|max_length[72]',
+            'role' => 'required|in_list[user,admin]'
         ];
 
         if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+            return redirect()->back()->with('errors', $this->validator->getErrors());
         }
 
         $this->userModel->save([
+            'nama' => $this->request->getPost('nama'),
+            'daerah' => 'Belum diatur', 'jenis_kelamin' => null, 'umur' => null,
             'username' => $this->request->getPost('username'),
             'email' => $this->request->getPost('email'),
-            'password' => password_hash($this->request->getPost('password'), PASSWORD_DEFAULT),
+            'password' => $this->request->getPost('password'),
             'role' => $this->request->getPost('role')
         ]);
 
@@ -76,14 +79,14 @@ class Users extends BaseController
         $roleList = ['user', 'admin'];
         $rules = [
             'nama' => 'required|min_length[3]|max_length[100]',
-            'username' => 'required|min_length[3]|max_length[50]',
-            'email' => 'required|valid_email',
-            'daerah' => 'required|in_list[' . implode(',', $daerahList) . ']',
+            'username' => 'required|min_length[3]|max_length[50]|alpha_dash|is_unique[users.username,user_id,' . (int) $id . ']',
+            'email' => 'required|valid_email|max_length[254]|is_unique[users.email,user_id,' . (int) $id . ']',
+            'daerah' => 'permit_empty|max_length[100]',
             'role' => 'required|in_list[' . implode(',', $roleList) . ']',
         ];
 
         if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+            return redirect()->back()->with('errors', $this->validator->getErrors());
         }
 
         $nama = strip_tags($this->request->getPost('nama'));
@@ -109,6 +112,10 @@ class Users extends BaseController
     {
         $user = $this->userModel->find($id);
         if (!$user) return redirect()->to('admin/users');
+
+        if ((int) $id === (int) session('user_id') || (new \App\Models\BookingModel())->where('user_id', $id)->countAllResults() > 0) {
+            return redirect()->to(base_url('admin/users'))->with('error', 'Akun sendiri atau akun dengan transaksi tidak dapat dihapus.');
+        }
 
         $this->userModel->delete($id);
         return redirect()->to('admin/users')->with('success', 'User berhasil dihapus');

@@ -42,9 +42,6 @@ class WishlistModel extends Model
     {
         return $this->where('user_id', $userId)
             ->where('wisata_id', $wisataId)
-            ->delete(); {
-            return true;
-        }
-        return false;
+            ->delete();
     }
 }

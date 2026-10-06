@@ -1,111 +1,22 @@
 <?= $this->extend('layouts/main') ?>
-
 <?= $this->section('content') ?>
-
-<div class="wishlist-page-wrapper">
-
-  <header>
-    <h1>Keinginan Saya</h1>
-  </header>
-
-  <main class="wishlist-container">
-    <?php if (session()->getFlashdata('success')): ?>
-      <div class="alert alert-success"><?= session()->getFlashdata('success') ?></div>
-    <?php endif; ?>
-
-    <?php if (empty($wishlist)): ?>
-      <div class="empty-wishlist">
-
-        <h3>Daftar Keinginan Anda Kosong</h3>
-        <p>Sepertinya Anda belum menambahkan destinasi wisata apa pun. Mari jelajahi!</p>
-        <a href="<?= base_url('destinasi') ?>" class="btn btn-primary"><i class="fas fa-search"></i> Jelajahi Destinasi</a>
-      </div>
-    <?php else: ?>
-      <div class="wishlist-list">
-        <?php foreach ($wishlist as $item): ?>
-          <div class="wishlist-item" id="wishlist-item-<?= $item['wisata_id'] ?>">
-            <img src="<?= (filter_var($item['gambar_wisata'], FILTER_VALIDATE_URL)) ? $item['gambar_wisata'] : base_url('uploads/wisata/' . ($item['gambar_wisata'] ?? 'default.jpg')) ?>" alt="<?= esc($item['nama']) ?>" />
-            <div class="product-info">
-              <h3><?= esc($item['nama']) ?></h3>
-              <p class="description">
-                <i class="fas fa-map-marker-alt"></i> <?= esc($item['daerah']) ?><br>
-                <span class="badge bg-info"><?= esc($item['nama_kategori']) ?></span>
-              </p>
-              <p class="price">Rp <?= number_format($item['harga'], 0, ',', '.') ?> / orang</p>
-              <p class="stock">Tersedia</p>
-            </div>
-            <a href="<?= base_url('destinasi/detail/' . $item['wisata_id']) ?>" class="add-to-cart">Lihat</a>
-            <a href="<?= base_url('wishlist/remove/' . $item['wisata_id']) ?>" class="remove" data-id="<?= $item['wisata_id'] ?>">×</a>
-          </div>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
-  </main>
-
+<div class="page-wrap"><span class="eyebrow">PILIHAN ANDA</span><h1>Destinasi tersimpan</h1><p class="muted">Kumpulkan tempat yang ingin Anda kunjungi, lalu rencanakan perjalanannya.</p>
+    <p id="wishlist-feedback" role="status" aria-live="polite"></p>
+    <?php if (!$wishlist): ?><div class="empty-state"><h2>Belum ada destinasi tersimpan</h2><p>Gunakan tombol Simpan di halaman detail destinasi.</p><a class="primary-button" href="<?= base_url('destinasi') ?>">Jelajahi destinasi</a></div>
+    <?php else: ?><div class="destination-grid"><?php foreach ($wishlist as $item): ?><div class="saved-destination"><?= view('partials/destination_card', ['item' => $item]) ?><button type="button" class="secondary-button w-100 mt-2" data-remove-url="<?= base_url('wishlist/remove/' . (int) $item['wisata_id']) ?>" aria-label="<?= esc('Hapus ' . $item['nama'] . ' dari tersimpan', 'attr') ?>">Hapus dari tersimpan</button></div><?php endforeach; ?></div><?php endif; ?>
 </div>
-<link rel="stylesheet" href="<?= base_url('css/wishlist.css') ?>">
-
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const removeButtons = document.querySelectorAll('.remove');
-
-    removeButtons.forEach(button => {
-      button.addEventListener('click', function(event) {
-        event.preventDefault();
-
-        const removalUrl = this.href;
-        const wisataId = this.getAttribute('data-id');
-        const wishlistItemElement = document.getElementById(`wishlist-item-${wisataId}`); // Target elemen div yang akan dihapus
-
-        Swal.fire({
-          title: 'Apakah Anda yakin?',
-          text: "Destinasi ini akan dihapus dari daftar keinginan Anda.",
-          icon: 'Peringatan',
-          showCancelButton: true,
-          confirmButtonColor: '#d33',
-          cancelButtonColor: '#3085d6',
-          confirmButtonText: 'Ya, hapus!',
-          cancelButtonText: 'Batal'
-        }).then((result) => {
-          if (result.isConfirmed) {
-
-            fetch(removalUrl)
-              .then(response => {
-                if (!response.ok) {
-                  throw new Error('Masalah jaringan atau server.');
-                }
-                return response.json();
-              })
-              .then(data => {
-                if (data.success) {
-                  Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'success',
-                    title: data.message || 'Berhasil dihapus!',
-                    showConfirmButton: false,
-                    timer: 2000
-                  });
-                  wishlistItemElement.style.transition = 'opacity 0.3s ease-out';
-                  wishlistItemElement.style.opacity = '0';
-                  setTimeout(() => {
-                    wishlistItemElement.remove();
-                  }, 300);
-
-                } else {
-                  Swal.fire('Gagal', data.message || 'Gagal menghapus item.', 'error');
-                }
-              })
-              .catch(error => {
-                console.error('Error:', error);
-                Swal.fire('Error', 'Tidak dapat menghubungi server.', 'error');
-              });
-          }
-        });
-      });
-    });
-  });
+document.addEventListener('DOMContentLoaded', () => {
+    const feedback = document.getElementById('wishlist-feedback');
+    document.querySelectorAll('[data-remove-url]').forEach(button => button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+            const response = await Banua.request(button.dataset.removeUrl, {method:'POST'}); const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || 'Destinasi belum berhasil dihapus.');
+            button.closest('.saved-destination').remove(); feedback.textContent = data.message;
+            if (!document.querySelector('.saved-destination')) location.reload();
+        } catch (error) { feedback.textContent = error.message; button.disabled = false; }
+    }));
+});
 </script>
-
 <?= $this->endSection() ?>

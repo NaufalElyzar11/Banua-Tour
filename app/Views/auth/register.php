@@ -1,132 +1,16 @@
 <?= $this->extend('layouts/auth') ?>
-
 <?= $this->section('content') ?>
-
-<head>
-    <meta charset="UTF-8">
-    <title>Modern Login Form | CodingStella </title>
-    <link rel='stylesheet' href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css'>
-    <link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Poppins&amp;display=swap'>
-    <link rel="stylesheet" href="<?= base_url('css/login.css') ?>">
-</head>
-
-<div class="wrapper">
-    <div class="register_box">
-        <div class="login-header">
-            <span>Registrasi</span>
-        </div>
-        <div class="card-body">
-            <?php if (session()->has('errors')) : ?>
-                <div class="alert alert-danger">
-                    <ul class="mb-0">
-                        <?php foreach (session('errors') as $error) : ?>
-                            <li><?= $error ?></li>
-                        <?php endforeach ?>
-                    </ul>
-                </div>
-            <?php endif ?>
-
-            <form action="<?= base_url('auth/doRegister') ?>" method="post">
-                <?= csrf_field() ?>
-
-                <div class="form-columns">
-                    <div class="form-column">
-                        <div class="input_box">
-                            <input type="text" class="input-field" id="nama" name="nama" value="<?= esc(old('nama')) ?>" required>
-                            <label for="nama" class="label">Nama Lengkap</label>
-                            <i class="bx bx-user icon"></i>
-                        </div>
-
-                        <div class="input_box">
-                            <input type="text" class="input-field" id="username" name="username" value="<?= esc(old('username')) ?>" required>
-                            <label for="username" class="label">Nama Pengguna</label>
-                            <i class="bx bx-user icon"></i>
-                        </div>
-
-                        <div class="input_box">
-                            <input type="email" class="input-field" id="email" name="email" value="<?= esc(old('email')) ?>" required>
-                            <label for="email" class="label">Email</label>
-                            <i class="bx bxl-gmail icon"></i>
-                        </div>
-
-                        <div class="input_box">
-                            <select class="form-select input-field" id="daerah" name="daerah" required>
-                                <option value="" selected disabled>Pilih Daerah</option>
-                                <?php
-                                $daerahList = [
-                                    'Banjarbaru',
-                                    'Banjarmasin',
-                                    'Banjar',
-                                    'Barito Kuala',
-                                    'Tapin',
-                                    'Hulu Sungai Selatan',
-                                    'Hulu Sungai Tengah',
-                                    'Hulu Sungai Utara',
-                                    'Tanah Laut',
-                                    'Tanah Bumbu',
-                                    'Kotabaru',
-                                    'Balangan'
-                                ];
-                                foreach ($daerahList as $daerah): ?>
-                                    <option value="<?= esc($daerah) ?>" <?= old('daerah') === $daerah ? 'selected' : '' ?>><?= esc($daerah) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <i class="bx bx-location-plus icon"></i>
-                        </div>
-                    </div>
-
-                    <div class="form-column">
-                        <div class="input_box">
-                            <input type="password" class="input-field" id="password" name="password" required>
-                            <label for="password" class="label">Kata Sandi</label>
-                            <i class="bx bx-lock-alt icon"></i>
-                        </div>
-
-                        <div class="input_box">
-                            <input type="password" class="input-field" id="confirm_password" name="confirm_password" required>
-                            <label for="confirm_password" class="label">Konfirmasi Kata Sandi</label>
-                            <i class="bx bx-lock-alt icon"></i>
-                        </div>
-
-                        <div class="input_box">
-                            <select class="form-select" id="jenis_kelamin" name="jenis_kelamin" required>
-                                <option value="">Pilih Jenis Kelamin</option>
-                                <option value="L" <?= old('jenis_kelamin') == 'L' ? 'selected' : '' ?>>Laki-laki</option>
-                                <option value="P" <?= old('jenis_kelamin') == 'P' ? 'selected' : '' ?>>Perempuan</option>
-                            </select>
-                            <i class="bx bx-male-female icon"></i>
-                        </div>
-
-                        <div class="input_box">
-                            <input type="number" class="input-field" id="umur" name="umur" value="<?= esc(old('umur')) ?>" required min="1">
-                            <label for="umur" class="label">Umur</label>
-                            <i class="bx bx-user icon"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="input_box">
-                    <button type="submit" class="input-submit">Daftar</button>
-                </div>
-            </form>
-
-            <div class="text-center mt-3">
-                <p>Sudah punya akun? <a href="<?= base_url('auth/login') ?>">Masuk di sini</a></p>
-            </div>
-        </div>
-    </div>
-</div>
-</div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var umurInput = document.getElementById('umur');
-        if (umurInput) {
-            umurInput.addEventListener('input', function(e) {
-                this.value = this.value.replace(/[^\d]/g, '');
-            });
-        }
-    });
-</script>
-
+<span class="eyebrow">MULAI RENCANA PERJALANAN</span>
+<h1>Buat akun Anda</h1>
+<p class="muted">Simpan destinasi favorit dan kelola pesanan di satu tempat. Preferensi wisata bisa diisi nanti.</p>
+<form action="<?= base_url('auth/doRegister') ?>" method="post" class="auth-form">
+    <?= csrf_field() ?>
+    <div class="field"><label for="nama">Nama lengkap</label><input type="text" id="nama" name="nama" value="<?= esc(old('nama') ?? '', 'attr') ?>" required minlength="2" maxlength="100" autocomplete="name"></div>
+    <div class="field"><label for="username">Nama pengguna</label><input type="text" id="username" name="username" value="<?= esc(old('username') ?? '', 'attr') ?>" required minlength="3" maxlength="50" pattern="[A-Za-z0-9_-]+" autocomplete="username" aria-describedby="username-help"><small id="username-help">Gunakan huruf, angka, garis bawah, atau tanda hubung.</small></div>
+    <div class="field"><label for="email">Email</label><input type="email" id="email" name="email" value="<?= esc(old('email') ?? '', 'attr') ?>" required maxlength="254" autocomplete="email"></div>
+    <div class="field"><label for="password">Kata sandi</label><div class="password-field"><input type="password" id="password" name="password" required minlength="12" maxlength="72" autocomplete="new-password" aria-describedby="password-help"><button type="button" data-password-toggle="password" aria-controls="password" aria-pressed="false">Tampilkan</button></div><small id="password-help">Minimal 12 karakter. Gunakan frasa yang panjang dan mudah Anda ingat.</small></div>
+    <div class="field"><label for="confirm_password">Ulangi kata sandi</label><input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password"></div>
+    <button class="primary-button" type="submit">Buat akun</button>
+</form>
+<p class="auth-switch">Sudah punya akun? <a href="<?= base_url('auth/login') ?>">Masuk</a></p>
 <?= $this->endSection() ?>

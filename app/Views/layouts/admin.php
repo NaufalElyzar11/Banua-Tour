@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="<?= esc(csrf_hash(), 'attr') ?>">
+    <script src="<?= base_url('js/app.js') ?>" defer></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $title ?? 'Admin' ?></title>
+    <title><?= esc($title ?? 'Admin') ?> · BanuaTour</title>
     <link href="<?= base_url('assets/sbadmin2/vendor/fontawesome-free/css/all.min.css') ?>" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link href="<?= base_url('assets/sbadmin2/css/sb-admin-2.min.css') ?>" rel="stylesheet">
@@ -23,45 +25,44 @@
             <hr class="sidebar-divider my-0">
             <?php
             $currentUrl = current_url();
-            function is_active($url)
+            $isActive = function ($url)
             {
                 return current_url() === base_url($url) ? 'active' : '';
-            }
+            };
             ?>
-            <li class="nav-item <?= is_active('admin/dashboard') || is_active('admin') ? 'active' : '' ?>">
+            <li class="nav-item <?= $isActive('admin/dashboard') || $isActive('admin') ? 'active' : '' ?>">
                 <a class="nav-link" href="<?= base_url('admin/dashboard') ?>">
                     <i class="fas fa-fw fa-tachometer-alt"></i>
                     <span>Dashboard</span></a>
             </li>
-            <li class="nav-item <?= is_active('admin/users') ?>">
+            <li class="nav-item <?= $isActive('admin/users') ?>">
                 <a class="nav-link" href="<?= base_url('admin/users') ?>">
                     <i class="fas fa-fw fa-users"></i>
                     <span>User</span></a>
             </li>
-            <li class="nav-item <?= is_active('admin/wisata') ?>">
+            <li class="nav-item <?= $isActive('admin/wisata') ?>">
                 <a class="nav-link" href="<?= base_url('admin/wisata') ?>">
                     <i class="fas fa-fw fa-mountain"></i>
                     <span>Wisata</span></a>
             </li>
-            <li class="nav-item <?= is_active('admin/review') ?>">
+            <li class="nav-item <?= $isActive('admin/review') ?>">
                 <a class="nav-link" href="<?= base_url('admin/review') ?>">
                     <i class="fas fa-fw fa-star"></i>
                     <span>Review</span></a>
             </li>
-            <li class="nav-item <?= is_active('admin/booking') ?>">
+            <li class="nav-item <?= $isActive('admin/booking') ?>">
                 <a class="nav-link" href="<?= base_url('admin/booking') ?>">
                     <i class="fas fa-fw fa-calendar"></i>
                     <span>Booking</span></a>
             </li>
-            <li class="nav-item <?= is_active('admin/berita') ?>">
+            <li class="nav-item <?= $isActive('admin/berita') ?>">
                 <a class="nav-link" href="<?= base_url('admin/berita') ?>">
                     <i class="fas fa-fw fa-newspaper"></i>
                     <span>Berita</span></a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="<?= base_url('admin/logout') ?>">
-                    <i class="fas fa-fw fa-sign-out-alt"></i>
-                    <span>Logout</span></a>
+                <form action="<?= base_url('admin/logout') ?>" method="post"><?= csrf_field() ?><button type="submit" class="nav-link border-0 bg-transparent text-left"><i class="fas fa-fw fa-sign-out-alt"></i> Keluar</button></form>
+            </li>
         </ul>
         <div id="content-wrapper" class="d-flex flex-column">
             <div id="content">

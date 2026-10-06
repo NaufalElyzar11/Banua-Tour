@@ -2,136 +2,79 @@
 
 namespace App\Controllers;
 
+use App\Libraries\BookingService;
 use App\Models\BookingModel;
 
 class Riwayat extends BaseController
 {
-    protected $bookingModel;
-
-    public function __construct()
-    {
-        if (!session()->get('isLoggedIn')) {
-            header('Location: ' . base_url('auth/login'));
-            exit();
-        }
-
-        $this->bookingModel = new BookingModel();
-    }
-
     public function index()
     {
-        $userId = session()->get('user_id');
-
-        $upcomingBookings = $this->bookingModel->getUpcomingBookings($userId);
-        $completedBookings = $this->bookingModel->getCompletedBookings($userId);
-        $canceledBookings = $this->bookingModel->getCanceledBookings($userId);
-
-        $data = [
-            'title' => 'Riwayat Kunjungan',
-            'user' => [
-                'user_id' => $userId,
-                'nama' => session()->get('nama'),
-                'email' => session()->get('email'),
-                'username' => session()->get('username'),
-                'role' => session()->get('role'),
-                'daerah' => session()->get('daerah') ?? 'Indonesia'
-            ],
-            'upcomingBookings' => $upcomingBookings,
-            'completedBookings' => $completedBookings,
-            'canceledBookings' => $canceledBookings
-        ];
-
-        return view('user/riwayat', $data);
+        $model = new BookingModel();
+        $userId = session('user_id');
+        $archived = $this->request->getGet('arsip') === '1';
+        return view('user/riwayat', [
+            'title' => 'Pesanan Saya',
+            'archived' => $archived,
+            'upcomingBookings' => $model->getUserBookings($userId, 'upcoming', $archived),
+            'completedBookings' => $model->getUserBookings($userId, 'completed', $archived),
+            'canceledBookings' => $model->getUserBookings($userId, 'canceled', $archived),
+        ]);
     }
 
     public function cancel($bookingId)
     {
-        $userId = session()->get('user_id');
-
-        $booking = $this->bookingModel->find($bookingId);
-        if (!$booking || $booking['user_id'] != $userId) {
-            return redirect()->back()->with('error', 'Booking tidak ditemukan.');
+        try {
+            (new BookingService())->cancel((int) $bookingId, (int) session('user_id'));
+            return redirect()->to(base_url('riwayat'))->with('success', 'Pesanan dibatalkan.');
+        } catch (\DomainException $e) {
+            return redirect()->to(base_url('riwayat'))->with('error', 'Pesanan tidak dapat dibatalkan. Untuk pesanan yang sudah dibayar, hubungi pengelola.');
+        } catch (\Throwable $e) {
+            log_message('error', 'Pembatalan gagal: {exception}', ['exception' => $e]);
+            return redirect()->to(base_url('riwayat'))->with('error', 'Pembatalan belum berhasil. Coba lagi.');
         }
-
-        if ($booking['status'] == 'completed') {
-            return redirect()->back()->with('error', 'Booking yang sudah selesai tidak dapat dibatalkan.');
-        }
-
-        $this->bookingModel->update($bookingId, [
-            'status' => 'canceled'
-        ]);
-
-        return redirect()->back()->with('success', 'Booking berhasil dibatalkan.');
     }
 
     public function delete($bookingId)
     {
-        if (!$this->request->isAJAX()) {
-            return redirect()->to(base_url('riwayat'));
-        }
-
-        if (!session()->get('isLoggedIn')) {
-            return $this->response->setJSON(['success' => false, 'message' => 'Akses ditolak.'])->setStatusCode(401);
-        }
-
-        $bookingModel = new BookingModel();
-        $userId = session()->get('user_id');
-
-        $booking = $bookingModel->where('booking_id', $bookingId)
-            ->where('user_id', $userId)
-            ->first();
-
+        $model = new BookingModel();
+        $booking = $model->where('user_id', session('user_id'))->find($bookingId);
         if (!$booking) {
-            return $this->response->setJSON(['success' => false, 'message' => 'Riwayat tidak ditemukan atau Anda tidak memiliki izin.'])->setStatusCode(404);
+            return $this->response->setStatusCode(404)->setJSON(['success' => false, 'message' => 'Pesanan tidak ditemukan.']);
         }
-
-        if ($bookingModel->delete($bookingId)) {
-            return $this->response->setJSON(['success' => true, 'message' => 'Riwayat berhasil dihapus.']);
-        } else {
-            return $this->response->setJSON(['success' => false, 'message' => 'Gagal menghapus riwayat dari database.'])->setStatusCode(500);
+        if (!in_array($booking['status'], ['completed', 'canceled'], true)) {
+            return $this->response->setStatusCode(409)->setJSON(['success' => false, 'message' => 'Pesanan aktif tidak dapat diarsipkan.']);
         }
+        $ok = $model->update($bookingId, ['hidden_by_user' => 1]);
+        return $this->response->setStatusCode($ok ? 200 : 500)->setJSON([
+            'success' => $ok, 'message' => $ok ? 'Pesanan diarsipkan dari daftar Anda.' : 'Pesanan belum berhasil diarsipkan.',
+        ]);
     }
 
-    public function showTicket($booking_id)
+    public function showTicket($bookingId)
     {
-        if (!$this->request->isAJAX()) {
-            return $this->response->setStatusCode(403, 'Forbidden');
-        }
-
-        $bookingModel = new BookingModel(); 
-        $userId = session()->get('user_id'); 
-
-        $booking = $bookingModel->where('booking_id', $booking_id)
-            ->where('user_id', $userId)
-            ->first();
-
-        $booking = $bookingModel
-            ->select('bookings.*, wisata.nama as nama_wisata') // Ambil semua dari tabel bookings, dan kolom 'nama' dari tabel wisata (diberi alias 'nama_wisata')
-            ->join('wisata', 'wisata.wisata_id = bookings.wisata_id') // Sesuaikan nama tabel dan kolom penghubung
-            ->where('bookings.booking_id', $booking_id)
-            ->where('bookings.user_id', $userId)
-            ->first();
-
+        $booking = (new BookingModel())->select('bookings.*, wisata.nama as nama_wisata')
+            ->join('wisata', 'wisata.wisata_id = bookings.wisata_id')
+            ->where('bookings.user_id', session('user_id'))->find($bookingId);
         if (!$booking) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Booking tidak ditemukan atau Anda tidak memiliki akses.'])->setStatusCode(404);
+            return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => 'Pesanan tidak ditemukan.']);
         }
-
-        if (empty($booking['kode_tiket'])) {
-            $prefix = "TIKET";
-            $uniqueCode = $prefix . "-" . strtoupper(substr(md5($booking['booking_id']), 0, 6)) . "-" . time();
-
-            $bookingModel->update($booking_id, ['kode_tiket' => $uniqueCode]);
-
-            $booking['kode_tiket'] = $uniqueCode;
+        if (($booking['status_pembayaran'] ?? '') !== 'paid' || !in_array($booking['status'], ['upcoming', 'completed'], true) || empty($booking['kode_tiket'])) {
+            return $this->response->setStatusCode(409)->setJSON(['status' => 'error', 'message' => 'Tiket tersedia setelah pembayaran dikonfirmasi pengelola.']);
         }
+        return $this->response->setHeader('Cache-Control', 'no-store')->setJSON(['status' => 'success', 'data' => [
+            'nama_wisata' => $booking['nama_wisata'], 'jumlah_orang' => $booking['jumlah_orang'],
+            'total_harga' => 'Rp ' . number_format($booking['total_harga'], 0, ',', '.'),
+            'kode_tiket' => $booking['kode_tiket'], 'tanggal_kunjungan' => $booking['tanggal_kunjungan'],
+            'sudah_digunakan' => $booking['status'] === 'completed',
+        ]]);
+    }
 
-        $ticketData = [
-            'nama_wisata'   => $booking['nama_wisata'], // Asumsi nama wisata ada di kolom 'nama'
-            'jumlah_orang'  => $booking['jumlah_orang'],
-            'total_harga'   => "Rp " . number_format($booking['total_harga'], 0, ',', '.'),
-            'kode_tiket'    => $booking['kode_tiket']
-        ];
-
-        return $this->response->setJSON(['status' => 'success', 'data' => $ticketData]);
+    public function restore($bookingId)
+    {
+        $model = new BookingModel();
+        $booking = $model->where('user_id', session('user_id'))->find($bookingId);
+        if (!$booking) return $this->response->setStatusCode(404)->setJSON(['success' => false, 'message' => 'Pesanan tidak ditemukan.']);
+        $ok = $model->update($bookingId, ['hidden_by_user' => 0]);
+        return $this->response->setStatusCode($ok ? 200 : 500)->setJSON(['success' => $ok, 'message' => $ok ? 'Pesanan dipulihkan.' : 'Pesanan belum berhasil dipulihkan.']);
     }
 }

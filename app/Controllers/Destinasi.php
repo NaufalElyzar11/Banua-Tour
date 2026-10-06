@@ -3,193 +3,109 @@
 namespace App\Controllers;
 
 use App\Models\WisataModel;
+use App\Models\KategoriModel;
 use App\Models\ReviewModel;
 use App\Models\BookingModel;
-use App\Models\KategoriModel;
 
 class Destinasi extends BaseController
 {
-    protected $wisataModel;
-    protected $reviewModel;
-    protected $bookingModel;
-    protected $kategoriModel;
-
-    public function __construct()
-    {
-        $this->wisataModel = new WisataModel();
-        $this->reviewModel = new ReviewModel();
-        $this->bookingModel = new BookingModel();
-        $this->kategoriModel = new KategoriModel();
-    }
-
     public function index()
     {
-        $wisataData = $this->wisataModel->getWisataWithKategori();
-        foreach ($wisataData as &$item) {
-            $item['gambar_wisata'] = $this->wisataModel->getFirstGalleryImage($item['wisata_id']) ?? base_url('uploads/wisata/default.jpg');
-        }
-
-        $data = [
-            'title' => 'Semua Destinasi Wisata',
-            'wisata' => $wisataData,
-            'kategoriList' => $this->kategoriModel->findAll()
-        ];
-
-        return view('destinasi/index', $data);
+        return $this->catalog();
     }
 
     public function search()
     {
-        $keyword = $this->request->getGet('keyword') ?? '';
-
-        $wisata = [];
-        if (!empty($keyword)) {
-            $wisata = $this->wisataModel->searchWisata($keyword);
-            foreach ($wisata as &$item) {
-                $item['gambar_wisata'] = $this->wisataModel->getFirstGalleryImage($item['wisata_id']) ?? base_url('uploads/wisata/default.jpg');
-            }
-        }
-
-        $data = [
-            'title' => 'Hasil Pencarian: ' . $keyword,
-            'keyword' => $keyword,
-            'wisata' => $wisata
-        ];
-
-        return view('destinasi/search', $data);
+        return $this->catalog();
     }
-    public function detail($id = null)
+
+    private function catalog()
     {
-        if ($id === null) {
-            return redirect()->to('destinasi');
-        }
-
-        $wisata = $this->wisataModel
-            ->select('wisata.*, kategori.nama_kategori')
-            ->join('kategori', 'kategori.kategori_id = wisata.kategori_id', 'left')
-            ->find($id);
-
-        if ($wisata === null) {
-            return redirect()->to('destinasi')->with('error', 'Destinasi wisata tidak ditemukan');
-        }
-        $galeri = [];
-
-        try {
-            $galleryPath = FCPATH . 'uploads/wisata/gallery/' . $id;
-            if (is_dir($galleryPath)) {
-                $files = scandir($galleryPath);
-                foreach ($files as $file) {
-                    if ($file != '.' && $file != '..' && in_array(pathinfo($file, PATHINFO_EXTENSION), ['jpg', 'jpeg', 'png', 'gif'])) {
-                        $galeri[] = 'gallery/' . $id . '/' . $file;
-                    }
-                }
-            }
-
-            if (empty($galeri) && !empty($wisata['gambar_wisata'])) {
-                $galeri[] = $wisata['gambar_wisata'];
-            }
-        } catch (\Exception $e) {
-            log_message('error', 'Error loading gallery images: ' . $e->getMessage());
-            $galeri = [];
-        }
-        $isInWishlist = false;
-        if (session()->get('isLoggedIn')) {
-            $userId = session()->get('user_id');
-            $wishlistModel = new \App\Models\WishlistModel();
-            $isInWishlist = $wishlistModel->isInWishlist($userId, $wisata['wisata_id']);
-        }
-
-        $reviews = $this->reviewModel->getReviewsByWisataId($wisata['wisata_id']);
-        $averageRating = $this->reviewModel->getAverageRating($wisata['wisata_id']);
-        $trendingScore = $this->bookingModel->getTotalPengunjung($wisata['wisata_id']);
-
-        $data = [
-            'title' => $wisata['nama'],
-            'wisata' => $wisata,
-            'galeri' => $galeri,
-            'isInWishlist' => $isInWishlist,
-            'reviews' => $reviews,
-            'averageRating' => $averageRating,
-            'trendingScore' => $trendingScore
+        $query = $this->request->getGet();
+        $filters = [
+            'keyword' => mb_substr(is_string($query['keyword'] ?? null) ? trim($query['keyword']) : '', 0, 100),
+            'kategori' => is_scalar($query['kategori'] ?? null) && ctype_digit((string) $query['kategori']) ? (string) $query['kategori'] : '',
+            'daerah' => mb_substr(is_string($query['daerah'] ?? null) ? trim($query['daerah']) : '', 0, 100),
+            'sort' => in_array($query['sort'] ?? '', ['name-asc', 'name-desc', 'price-asc', 'price-desc'], true) ? $query['sort'] : 'name-asc',
         ];
+        $model = new WisataModel();
+        $model->select('wisata.*, kategori.nama_kategori')->join('kategori', 'kategori.kategori_id = wisata.kategori_id', 'left');
+        if ($filters['keyword'] !== '') {
+            $model->groupStart()->like('wisata.nama', $filters['keyword'])->orLike('wisata.daerah', $filters['keyword'])
+                ->orLike('kategori.nama_kategori', $filters['keyword'])->groupEnd();
+        }
+        if ($filters['kategori'] !== '') $model->where('wisata.kategori_id', $filters['kategori']);
+        if ($filters['daerah'] !== '') $model->where('wisata.daerah', $filters['daerah']);
+        [$field, $direction] = match ($filters['sort']) {
+            'name-desc' => ['wisata.nama', 'DESC'], 'price-asc' => ['wisata.harga', 'ASC'],
+            'price-desc' => ['wisata.harga', 'DESC'], default => ['wisata.nama', 'ASC'],
+        };
+        $wisata = $model->orderBy($field, $direction)->orderBy('wisata.wisata_id', 'ASC')->paginate(12);
+        return view('destinasi/index', [
+            'title' => 'Jelajahi Destinasi', 'wisata' => $wisata, 'filters' => $filters, 'pager' => $model->pager,
+            'kategoriList' => (new KategoriModel())->findAll(),
+            'daerahList' => array_column((new WisataModel())->select('daerah')->distinct()->orderBy('daerah')->findAll(), 'daerah'),
+        ]);
+    }
 
-        return view('destinasi/detail', $data);
+    public function detail($id)
+    {
+        $wisata = (new WisataModel())->select('wisata.*, kategori.nama_kategori')
+            ->join('kategori', 'kategori.kategori_id = wisata.kategori_id', 'left')->find($id);
+        if (!$wisata) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Destinasi tidak ditemukan.');
+        $reviews = new ReviewModel();
+        return view('destinasi/detail', [
+            'title' => $wisata['nama'], 'wisata' => $wisata, 'galeri' => wisata_gallery((int) $id),
+            'isInWishlist' => session('isLoggedIn') && (new \App\Models\WishlistModel())->isInWishlist(session('user_id'), $id),
+            'reviews' => $reviews->getReviewsByWisataId($id),
+            'averageRating' => (float) $reviews->getAverageRating($id),
+            'trendingScore' => (new BookingModel())->getTotalPengunjung($id),
+        ]);
     }
 
     public function addReview()
     {
-        if (!session()->get('isLoggedIn')) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Silahkan login terlebih dahulu untuk memberikan review'
-            ]);
+        if (!$this->validate([
+            'wisata_id' => 'required|is_natural_no_zero|is_not_unique[wisata.wisata_id]',
+            'rating' => 'required|integer|greater_than[0]|less_than[6]',
+            'komentar' => 'required|min_length[10]|max_length[500]',
+        ])) {
+            return $this->response->setStatusCode(422)->setJSON(['status' => 'error', 'message' => 'Pilih rating 1–5 dan tulis ulasan 10–500 karakter.']);
         }
-
-        $rules = [
-            'wisata_id' => 'required|numeric',
-            'rating' => 'required|numeric|greater_than[0]|less_than[6]',
-            'komentar' => 'required|min_length[10]|max_length[500]'
-        ];
-
-        if (!$this->validate($rules)) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Review tidak valid. Rating harus 1-5 dan komentar minimal 10 karakter.'
-            ]);
+        $wisataId = (int) $this->request->getPost('wisata_id');
+        $userId = (int) session('user_id');
+        $visited = (new BookingModel())->where('user_id', $userId)->where('wisata_id', $wisataId)
+            ->where('status', 'completed')->where('status_pembayaran', 'paid')->where('tanggal_kunjungan <=', date('Y-m-d'))->countAllResults();
+        if (!$visited) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => 'Ulasan tersedia setelah kunjungan selesai dan pembayaran terverifikasi.']);
         }
-
-        $reviewData = [
-            'user_id' => session()->get('user_id'),
-            'wisata_id' => $this->request->getPost('wisata_id'),
-            'rating' => $this->request->getPost('rating'),
-            'komentar' => $this->request->getPost('komentar')
-        ];
-
+        $model = new ReviewModel();
+        if ($model->where('user_id', $userId)->where('wisata_id', $wisataId)->countAllResults()) {
+            return $this->response->setStatusCode(409)->setJSON(['status' => 'error', 'message' => 'Anda sudah memberikan ulasan untuk destinasi ini.']);
+        }
+        if (!service('throttler')->check('review-' . $userId, 3, 300)) {
+            return $this->response->setStatusCode(429)->setJSON(['status' => 'error', 'message' => 'Tunggu beberapa menit sebelum mengirim ulasan lagi.']);
+        }
         try {
-            $this->reviewModel->insert($reviewData);
-            return $this->response->setJSON([
-                'status' => 'success',
-                'message' => 'Review berhasil ditambahkan'
-            ]);
-        } catch (\Exception $e) {
-            log_message('error', 'Error adding review: ' . $e->getMessage());
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Terjadi kesalahan saat menambahkan review'
-            ]);
+        $ok = $model->insert(['user_id' => $userId, 'wisata_id' => $wisataId,
+            'rating' => (int) $this->request->getPost('rating'), 'komentar' => $this->request->getPost('komentar')]);
+        } catch (\Throwable $e) {
+            if ($model->where('user_id', $userId)->where('wisata_id', $wisataId)->countAllResults()) return $this->response->setStatusCode(409)->setJSON(['status' => 'error', 'message' => 'Anda sudah memberikan ulasan untuk destinasi ini.']);
+            $ok = false;
         }
+        return $this->response->setStatusCode($ok ? 200 : 500)->setJSON([
+            'status' => $ok ? 'success' : 'error', 'message' => $ok ? 'Ulasan berhasil disimpan.' : 'Ulasan belum berhasil disimpan.',
+        ]);
     }
 
-    public function deleteReview($reviewId)
+    public function deleteReview($id)
     {
-        $review = $this->reviewModel->find($reviewId);
-
-        if (!$review) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Review tidak ditemukan.'
-            ]);
-        }
-
-        if ($review['user_id'] != session()->get('user_id')) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Anda tidak memiliki izin untuk menghapus review ini.'
-            ]);
-        }
-
-        try {
-            $this->reviewModel->delete($reviewId);
-            return $this->response->setJSON([
-                'status' => 'success',
-                'message' => 'Review berhasil dihapus.'
-            ]);
-        } catch (\Exception $e) {
-            log_message('error', 'Error deleting review: ' . $e->getMessage());
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Terjadi kesalahan saat menghapus review.'
-            ]);
-        }
+        $model = new ReviewModel();
+        $review = $model->where('user_id', session('user_id'))->find($id);
+        if (!$review) return $this->response->setStatusCode(404)->setJSON(['status' => 'error', 'message' => 'Ulasan tidak ditemukan.']);
+        $ok = $model->delete($id);
+        return $this->response->setStatusCode($ok ? 200 : 500)->setJSON([
+            'status' => $ok ? 'success' : 'error', 'message' => $ok ? 'Ulasan dihapus.' : 'Ulasan belum berhasil dihapus.',
+        ]);
     }
 }

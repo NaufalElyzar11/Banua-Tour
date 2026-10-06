@@ -3,10 +3,10 @@
 <h1 class="h3 mb-4 text-gray-800">Manajemen Berita</h1>
 
 <?php if (session()->getFlashdata('success')): ?>
-    <div class="alert alert-success"><?= session()->getFlashdata('success') ?></div>
+    <div class="alert alert-success"><?= esc(session()->getFlashdata('success')) ?></div>
 <?php endif; ?>
 <?php if (session()->getFlashdata('error')): ?>
-    <div class="alert alert-danger"><?= session()->getFlashdata('error') ?></div>
+    <div class="alert alert-danger"><?= esc(session()->getFlashdata('error')) ?></div>
 <?php endif; ?>
 <?php if (isset($errors) && is_array($errors)): ?>
     <div class="alert alert-danger">
@@ -46,7 +46,7 @@
                         <tr>
                             <td><?= $no++ ?></td>
                             <td>
-                                <img src="<?= esc($b['gambar']) ?>"
+                                <img src="<?= esc(news_image($b['gambar']), 'attr') ?>"
                                     alt="<?= esc($b['judul']) ?>"
                                     style="max-width: 80px; height: auto;"
                                     onerror="this.src='<?= base_url('uploads/berita/default.jpg') ?>'">
@@ -63,6 +63,7 @@
                                     <form action="<?= base_url('admin/berita/delete/' . $b['berita_id']) ?>"
                                         method="post"
                                         onsubmit="return confirm('Yakin ingin menghapus?')">
+    <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-sm btn-danger">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -81,9 +82,9 @@
     <?= csrf_field() ?>
     <div class="mb-2">
         <label for="excel_file" class="form-label">Impor Excel:</label>
-        <input type="file" name="excel_file" id="excel_file" class="form-control" accept=".xlsx,.xls" required>
+        <input type="file" name="excel_file" id="excel_file" class="form-control" accept=".xlsx" required>
     </div>
-    <button type="submit" class="btn btn-success">Impor</button>
+    <p>Format kolom A–F: judul, konten, ID wisata (opsional), URL sumber, URL gambar, tanggal YYYY-MM-DD. Baris pertama adalah judul kolom. Maksimal 2.000 berita, 5 MB. Hasil disimpan sebagai draf.</p><button type="submit" class="btn btn-success">Impor sebagai draf</button>
 </form>
 
 <?= $this->endSection() ?>

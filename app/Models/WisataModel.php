@@ -19,7 +19,8 @@ class WisataModel extends Model
         'harga',
         'kategori_id',
         'trending_score',
-        'link_video'
+        'link_video', 'latitude', 'longitude', 'gambar_wisata',
+        'jam_buka', 'fasilitas', 'akses_transportasi', 'aksesibilitas', 'ketentuan_tiket', 'kontak_pengelola'
     ];
 
     protected $useTimestamps = false;
@@ -42,11 +43,11 @@ class WisataModel extends Model
 
     public function getTrendingWisata($limit = 4)
     {
-        return $this->select('wisata.*, kategori.nama_kategori, COALESCE(SUM(bookings.jumlah_orang),0) as total_kunjungan')
+        return $this->select('wisata.*, kategori.nama_kategori, COALESCE(SUM(visits.jumlah_orang),0) as total_kunjungan')
             ->join('kategori', 'kategori.kategori_id = wisata.kategori_id', 'left')
-            ->join('bookings', 'bookings.wisata_id = wisata.wisata_id', 'left')
+            ->join('bookings visits', "visits.wisata_id = wisata.wisata_id AND visits.status = 'completed' AND visits.status_pembayaran = 'paid' AND visits.tanggal_kunjungan >= '" . date('Y-m-d', strtotime('-30 days')) . "' AND visits.tanggal_kunjungan <= '" . date('Y-m-d') . "'", 'left')
             ->groupBy('wisata.wisata_id, kategori.nama_kategori')
-            ->orderBy('total_kunjungan', 'DESC')
+            ->orderBy('total_kunjungan', 'DESC')->orderBy('wisata.wisata_id', 'DESC')
             ->limit($limit)
             ->find();
     }

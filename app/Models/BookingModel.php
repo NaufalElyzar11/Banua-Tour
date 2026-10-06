@@ -24,7 +24,7 @@ class BookingModel extends Model
         'status_pembayaran',
         'bukti_pembayaran',
         'kode_booking',
-        'kode_tiket'
+        'kode_tiket', 'payment_reference', 'paid_at', 'confirmed_by', 'request_token', 'hidden_by_user', 'archived_by_admin'
     ];
 
     protected $useTimestamps = true;
@@ -42,12 +42,13 @@ class BookingModel extends Model
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
 
-    public function getUserBookings($userId, $status = null)
+    public function getUserBookings($userId, $status = null, bool $archived = false)
     {
-        $query = $this->select('bookings.*, wisata.nama, wisata.daerah, wisata.harga, wisata.gambar_wisata, kategori.nama_kategori')
+        $query = $this->select('bookings.*, wisata.nama, wisata.daerah, wisata.harga, wisata.gambar_wisata, wisata.kontak_pengelola, kategori.nama_kategori')
             ->join('wisata', 'wisata.wisata_id = bookings.wisata_id')
             ->join('kategori', 'kategori.kategori_id = wisata.kategori_id', 'left')
-            ->where('bookings.user_id', $userId);
+            ->where('bookings.user_id', $userId)
+            ->where('bookings.hidden_by_user', (int) $archived);
 
         if ($status) {
             $query->where('bookings.status', $status);
@@ -76,6 +77,8 @@ class BookingModel extends Model
     {
         $result = $this->selectSum('jumlah_orang')
             ->where('wisata_id', $wisataId)
+            ->where('status', 'completed')
+            ->where('status_pembayaran', 'paid')
             ->first();
 
         return $result['jumlah_orang'] ?? 0;

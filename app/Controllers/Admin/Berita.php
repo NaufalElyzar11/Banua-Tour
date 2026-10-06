@@ -1,174 +1,77 @@
 <?php
-
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\BeritaModel;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use App\Models\LocationModel;
 use App\Models\WisataModel;
+use App\Libraries\MediaStorage;
+use App\Libraries\NewsImport;
+use DomainException;
 
 class Berita extends BaseController
 {
-    protected $beritaModel;
-
-    public function __construct()
-    {
-        $this->beritaModel = new BeritaModel();
-    }
-
-    public function index()
-    {
-        $data = [
-            'title' => 'Manajemen Berita',
-            'berita' => $this->beritaModel->findAll()
-        ];
-        return view('admin/berita/index', $data);
-    }
-
-    public function create()
-    {
-        $wisataModel = new WisataModel();
-        $data = [
-            'title' => 'Tambah Berita',
-            'wisataList' => $wisataModel->findAll()
-        ];
-        return view('admin/berita/create', $data);
-    }
-
-    public function store()
-    {
-        $rules = [
-            'judul' => 'required|min_length[5]|max_length[255]',
-            'konten' => 'required|min_length[10]',
-            'gambar' => 'uploaded[gambar]|max_size[gambar,2048]|is_image[gambar]|mime_in[gambar,image/jpg,image/jpeg,image/png]',
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
-        }
-
-        $gambar = $this->request->getFile('gambar');
-        $namaGambar = $gambar->getRandomName();
-        $gambar->move(FCPATH . 'uploads/berita', $namaGambar);
-
-        $data = [
-            'judul' => $this->request->getPost('judul'),
-            'konten' => $this->request->getPost('konten'),
-            'gambar' => $namaGambar,
-            'status' => $this->request->getPost('status') ?? 'published',
-            'created_at' => date('Y-m-d H:i:s')
-        ];
-
-        $this->beritaModel->insert($data);
-        return redirect()->to('admin/berita')->with('success', 'Berita berhasil ditambahkan');
-    }
-
+    public function index() { return view('admin/berita/index', ['title' => 'Manajemen Berita', 'berita' => (new BeritaModel())->orderBy('berita_id', 'DESC')->findAll()]); }
+    public function create() { return view('admin/berita/create', ['title' => 'Tambah Berita', 'berita' => null, 'wisataList' => (new WisataModel())->findAll()]); }
     public function edit($id)
     {
-        $berita = $this->beritaModel->find($id);
-        if (!$berita) {
-            return redirect()->to('admin/berita')->with('error', 'Berita tidak ditemukan');
-        }
-        $wisataModel = new WisataModel();
-        $data = [
-            'title' => 'Edit Berita',
-            'berita' => $berita,
-            'wisataList' => $wisataModel->findAll()
-        ];
-        return view('admin/berita/edit', $data);
+        $news = (new BeritaModel())->find($id);
+        if (!$news) return redirect()->to(base_url('admin/berita'))->with('error', 'Berita tidak ditemukan.');
+        return view('admin/berita/edit', ['title' => 'Edit Berita', 'berita' => $news, 'wisataList' => (new WisataModel())->findAll()]);
     }
+    public function store() { return $this->save(); }
+    public function update($id) { return $this->save((int) $id); }
 
-    public function update($id)
+    private function save(?int $id = null)
     {
-        $rules = [
-            'judul' => 'required|min_length[5]|max_length[255]',
-            'konten' => 'required|min_length[10]',
-            'gambar' => 'max_size[gambar,2048]|is_image[gambar]|mime_in[gambar,image/jpg,image/jpeg,image/png]',
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        $model = new BeritaModel(); $old = $id ? $model->find($id) : null;
+        if ($id && !$old) return redirect()->to(base_url('admin/berita'))->with('error', 'Berita tidak ditemukan.');
+        if (!$this->validate([
+            'judul' => 'required|min_length[5]|max_length[255]', 'konten' => 'required|min_length[10]|max_length[50000]',
+            'status' => 'required|in_list[published,draft]', 'wisata_id' => 'permit_empty|is_natural_no_zero',
+            'link_berita' => 'permit_empty|max_length[255]', 'gambar_url' => 'permit_empty|max_length[255]',
+        ])) return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        $storage = new MediaStorage(); $newImage = null;
+        try {
+            $destination = $this->request->getPost('wisata_id');
+            if ($destination && !(new WisataModel())->find($destination)) throw new DomainException('Wisata tidak ditemukan.');
+            $link = trim($this->request->getPost('link_berita') ?? ''); $imageUrl = trim($this->request->getPost('gambar_url') ?? '');
+            if (($link !== '' && !safe_url($link)) || ($imageUrl !== '' && !safe_url($imageUrl))) throw new DomainException('URL harus berupa alamat HTTP atau HTTPS yang valid.');
+            $data = ['judul' => trim($this->request->getPost('judul')), 'konten' => $this->request->getPost('konten'), 'status' => $this->request->getPost('status'), 'wisata_id' => $destination ?: null, 'link_berita' => $link ?: null, 'tanggal_post' => $old['tanggal_post'] ?? date('Y-m-d')];
+            $file = $this->request->getFile('gambar');
+            if ($file && $file->getError() !== UPLOAD_ERR_NO_FILE) $data['gambar'] = $newImage = $storage->saveImage($file, 'berita');
+            elseif ($imageUrl !== '') $data['gambar'] = $imageUrl;
+            if (!($id ? $model->update($id, $data) : $model->insert($data))) throw new \RuntimeException('Berita belum tersimpan.');
+            if (isset($data['gambar']) && !empty($old['gambar']) && $old['gambar'] !== $data['gambar']) $storage->deleteImage('berita', $old['gambar']);
+            return redirect()->to(base_url('admin/berita'))->with('success', 'Berita berhasil disimpan.');
+        } catch (\Throwable $e) {
+            if ($newImage) $storage->deleteImage('berita', $newImage);
+            return redirect()->back()->withInput()->with('error', $e instanceof DomainException ? $e->getMessage() : 'Berita belum tersimpan. Silakan coba lagi.');
         }
-
-        $data = [
-            'judul' => $this->request->getPost('judul'),
-            'konten' => $this->request->getPost('konten'),
-            'status' => $this->request->getPost('status') ?? 'published',
-            'updated_at' => date('Y-m-d H:i:s')
-        ];
-
-        $gambar = $this->request->getFile('gambar');
-        if ($gambar->isValid() && !$gambar->hasMoved()) {
-            $oldBerita = $this->beritaModel->find($id);
-            if ($oldBerita && $oldBerita['gambar']) {
-                $oldGambarPath = FCPATH . 'uploads/berita/' . $oldBerita['gambar'];
-                if (file_exists($oldGambarPath)) {
-                    unlink($oldGambarPath);
-                }
-            }
-
-            $namaGambar = $gambar->getRandomName();
-            $gambar->move(FCPATH . 'uploads/berita', $namaGambar);
-            $data['gambar'] = $namaGambar;
-        }
-
-        $this->beritaModel->update($id, $data);
-        return redirect()->to('admin/berita')->with('success', 'Berita berhasil diperbarui');
     }
 
     public function delete($id)
     {
-        $berita = $this->beritaModel->find($id);
-        if (!$berita) {
-            return redirect()->to('admin/berita')->with('error', 'Berita tidak ditemukan');
-        }
-
-        if ($berita['gambar']) {
-            $gambarPath = FCPATH . 'uploads/berita/' . $berita['gambar'];
-            if (file_exists($gambarPath)) {
-                unlink($gambarPath);
-            }
-        }
-
-        $this->beritaModel->delete($id);
-        return redirect()->to('admin/berita')->with('success', 'Berita berhasil dihapus');
+        $model = new BeritaModel(); $news = $model->find($id);
+        if (!$news || !$model->delete($id)) return redirect()->to(base_url('admin/berita'))->with('error', 'Berita belum berhasil dihapus.');
+        if (!empty($news['gambar'])) (new MediaStorage())->deleteImage('berita', $news['gambar']);
+        return redirect()->to(base_url('admin/berita'))->with('success', 'Berita berhasil dihapus.');
     }
 
     public function import()
     {
-        $rules = [
-            'excel_file' => 'uploaded[excel_file]|max_size[excel_file,5120]|ext_in[excel_file,xlsx,xls]'
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->with('errors', $this->validator->getErrors());
+        if (!$this->validate(['excel_file' => 'uploaded[excel_file]|max_size[excel_file,5120]|ext_in[excel_file,xlsx]'])) return redirect()->to(base_url('admin/berita'))->with('error', 'Pilih file XLSX maksimal 5 MB.');
+        $db = db_connect(); $begun = false;
+        try {
+            $data = (new NewsImport())->read($this->request->getFile('excel_file')->getTempName(), array_column((new WisataModel())->findAll(), 'wisata_id'));
+            $db->transBegin(); $begun = true;
+            $model = new BeritaModel($db);
+            foreach ($data as $item) if (!$model->insert($item)) throw new \RuntimeException('Impor gagal.');
+            if (!$db->transStatus()) throw new \RuntimeException('Impor gagal.');
+            $db->transCommit();
+            return redirect()->to(base_url('admin/berita'))->with('success', count($data) . ' berita diimpor sebagai draf. Periksa sebelum menerbitkan.');
+        } catch (\Throwable $e) {
+            if ($begun) $db->transRollback();
+            return redirect()->to(base_url('admin/berita'))->with('error', $e instanceof DomainException ? $e->getMessage() : 'File belum berhasil diimpor. Periksa format XLSX.');
         }
-
-        $file = $this->request->getFile('excel_file');
-        $spreadsheet = IOFactory::load($file->getTempName());
-        $rows = $spreadsheet->getActiveSheet()->toArray();
-
-        $dataToInsert = [];
-        foreach (array_slice($rows, 1) as $row) {
-            $dataToInsert[] = [
-                'judul'        => trim($row[0] ?? ''),
-                'konten'       => trim($row[1] ?? ''),
-                'wisata_id'    => trim($row[2] ?? null),
-                'link_berita'  => trim($row[3] ?? ''),
-                'gambar'       => trim($row[4] ?? ''),
-                'tanggal_post' => trim($row[5] ?? null),
-            ];
-        }
-
-        if (empty($dataToInsert)) {
-            return redirect()->back()->with('error', 'Tidak ada data valid untuk diimpor.');
-        }
-
-        $locationModel = new LocationModel();
-        $locationModel->ignore(true)->insertBatch($dataToInsert);
-
-        $count = $locationModel->db->affectedRows();
-        return redirect()->back()->with('success', "{$count} data berita baru berhasil diimpor.");
     }
 }

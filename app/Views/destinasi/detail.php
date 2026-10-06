@@ -1,376 +1,71 @@
 <?= $this->extend('layouts/main') ?>
-
 <?= $this->section('content') ?>
-<link rel="stylesheet" href="<?= base_url('css/detail.css') ?>">
-
-<div class="container mt-4">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="<?= base_url('destinasi') ?>">Destinasi Wisata Lainnya</a></li>
-            <li class="breadcrumb-item active" aria-current="page"><?= esc($wisata['nama']) ?></li>
-        </ol>
-    </nav>
-
-    <div class="wisata-detail">
-        <div class="left-column">
-            <div class="wisata-images">
-                <?php $wisata_id = isset($wisata['id']) ? $wisata['id'] : 'default'; ?>
-
-                <?php if (!empty($wisata['link_video'])): ?>
-                    <iframe
-                        class="media-box"
-                        src="<?= esc($wisata['link_video']) ?>"
-                        title="<?= esc($wisata['nama']) ?>"
-                        frameborder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowfullscreen>
-                    </iframe>
-                <?php else: ?>
-                    <?php if (!empty($galeri) && is_array($galeri)): ?>
-                        <img
-                            class="main-image"
-                            src="<?= base_url('uploads/wisata/' . $galeri[0]) ?>"
-                            alt="<?= esc($wisata['nama']) ?>"
-                            onerror="this.src='<?= base_url('uploads/wisata/default.jpg') ?>'">
-                    <?php endif; ?>
-                <?php endif; ?>
-
-                <?php if (!empty($galeri) && is_array($galeri)): ?>
-                    <div class="small-Card">
-                        <?php foreach ($galeri as $index => $gambar): ?>
-                            <img
-                                src="<?= base_url('uploads/wisata/' . $gambar) ?>"
-                                alt="Thumbnail"
-                                class="small-Img"
-                                data-index="<?= $index ?>"
-                                onclick="openModal(<?= $index ?>)">
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+<?php $embed = youtube_embed($wisata['link_video'] ?? ''); $imageUrls = array_map(static fn ($file) => base_url('uploads/wisata/' . $file), $galeri); if (!$imageUrls) $imageUrls = [wisata_image($wisata)]; ?>
+<div class="page-wrap">
+    <nav aria-label="Jejak navigasi" class="mb-4"><a href="<?= base_url('destinasi') ?>">Destinasi</a> <span aria-hidden="true">/</span> <?= esc($wisata['nama']) ?></nav>
+    <div id="detail-feedback" aria-live="polite"></div>
+    <div class="detail-layout">
+        <section aria-label="Foto destinasi">
+            <img class="gallery-main" src="<?= esc($imageUrls[0], 'attr') ?>" alt="<?= esc($wisata['nama'], 'attr') ?>" width="800" height="600">
+            <?php if (count($imageUrls) > 1): ?><div class="gallery-thumbnails"><?php foreach ($imageUrls as $index => $url): ?><button type="button" data-gallery="<?= $index ?>" aria-label="Lihat foto <?= $index + 1 ?> <?= esc($wisata['nama'], 'attr') ?>"><img src="<?= esc($url, 'attr') ?>" alt="" loading="lazy" width="96" height="72"></button><?php endforeach; ?></div><?php endif; ?>
+        </section>
+        <section class="detail-copy">
+            <div class="detail-intro"><span class="eyebrow"><?= esc($wisata['nama_kategori'] ?? 'WISATA BANUA') ?></span>
+            <h1><?= esc($wisata['nama']) ?></h1><p class="muted"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> <?= esc($wisata['daerah']) ?></p>
+            <p class="detail-rating"><?= $reviews ? number_format($averageRating, 1, ',', '.') . ' / 5 · ' . count($reviews) . ' ulasan' : 'Belum ada ulasan' ?></p>
+            <div class="detail-price"><strong>Rp <?= number_format($wisata['harga'], 0, ',', '.') ?></strong><span class="muted"> / orang</span></div>
+            <div class="detail-actions"><a class="primary-button" href="<?= base_url('booking/pembelian/' . (int) $wisata['wisata_id']) ?>">Pesan kunjungan</a>
+                <?php if (session('isLoggedIn')): ?><button type="button" class="secondary-button" id="wishlist-button" aria-pressed="<?= $isInWishlist ? 'true' : 'false' ?>"><?= $isInWishlist ? 'Tersimpan di favorit' : 'Simpan ke favorit' ?></button><?php else: ?><a class="secondary-button" href="<?= base_url('wishlist') ?>">Simpan ke favorit</a><?php endif; ?>
             </div>
-
-            <div id="imageModal" class="modal">
-                <span class="close" onclick="closeModal()">&times;</span>
-                <img class="modal-content" id="modalImage">
-                <a class="prev" onclick="moveImage(-1)">&#10094;</a>
-                <a class="next" onclick="moveImage(1)">&#10095;</a>
-            </div>
-
-            <iframe
-                width="700"
-                height="300"
-                style="border:0"
-                loading="lazy"
-                allowfullscreen
-                referrerpolicy="no-referrer-when-downgrade"
-                src="https://www.google.com/maps?q=<?= esc($wisata['latitude']) ?>,<?= esc($wisata['longitude']) ?>&output=embed">
-            </iframe>
-        </div>
-
-        <div class="right-column wisata-info">
-            <div class="wisata-info">
-                <div class="wisata-header">
-                    <div class="badges">
-                        <span class="badge"><?= esc($wisata['nama_kategori'] ?? 'Umum') ?></span>
-                        <span class="badge daerah"><?= esc($wisata['daerah'] ?? 'Indonesia') ?></span>
-                    </div>
-                    <h1><?= esc($wisata['nama']) ?></h1>
-                </div>
-
-                <div class="price-box">
-                    <h2>Rp <?= number_format($wisata['harga'] ?? 0, 0, ',', '.') ?></h2>
-                    <span>/orang</span>
-                </div>
-
-                <div class="wisata-actions">
-                    <?php if (session()->get('isLoggedIn')): ?>
-                        <a href="<?= base_url('booking/pembelian/' . $wisata['wisata_id']) ?>" class="btn btn-primary">
-                            <i class="fas fa-ticket-alt"></i> Beli Sekarang
-                        </a>
-                    <?php else: ?>
-                        <a href="<?= base_url('auth/login') ?>" class="btn btn-primary">
-                            <i class="fas fa-sign-in-alt"></i> Masuk untuk Membeli
-                        </a>
-                    <?php endif; ?>
-
-                    <?php if (session()->get('isLoggedIn')): ?>
-                        <a href="javascript:void(0);"
-                            id="wishlistButton"
-                            class="btn btn-primary <?= !empty($isInWishlist) ? 'wishlist-added' : '' ?>"
-                            data-wisata-id="<?= $wisata['wisata_id'] ?>">
-                            <i class="fas fa-heart"></i>
-                            <span id="wishlistText"><?= !empty($isInWishlist) ? 'Sudah di Wishlist' : 'Tambah ke Wishlist' ?></span>
-                        </a>
-                    <?php endif; ?>
-                </div>
-
-                <div class="wisata-description">
-                    <h3>Tentang Destinasi Wisata</h3>
-                    <p><?= nl2br(esc($wisata['deskripsi'] ?? 'Tidak ada deskripsi')) ?></p>
-                </div>
-
-                <div class="wisata-details">
-                    <div class="detail-item">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <div>
-                            <strong>Lokasi</strong>
-                            <span><?= esc($wisata['daerah'] ?? 'Indonesia') ?></span>
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <i class="fas fa-tags"></i>
-                        <div>
-                            <strong>Kategori</strong>
-                            <span><?= esc($wisata['nama_kategori'] ?? 'Umum') ?></span>
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <i class="fas fa-chart-area"></i>
-                        <div>
-                            <strong>Pengunjung</strong>
-                            <span><?= $trendingScore ?? 0 ?></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+            <p class="muted small">Pemesanan belum berarti lunas. Pembayaran diperiksa oleh pengelola sebelum tiket diterbitkan.</p>
+            </div><div class="detail-description"><h2 class="mt-4">Tentang destinasi</h2><p><?= nl2br(esc($wisata['deskripsi'])) ?></p>
+            <?= view('partials/visitor_info', ['wisata' => $wisata]) ?></div>
+        </section>
     </div>
-
-    <div class="review-section mt-5">
-        <div class="container">
-            <h2 class="review-section-title mb-4">Ulasan Pengunjung</h2>
-
-            <div class="rating-summary-card mb-5">
-                <div class="average-rating-display">
-                    <div class="rating-score"><?= number_format($averageRating, 1) ?></div>
-                    <div class="rating-stars">
-                        <?php for ($i = 1; $i <= 5; $i++): ?>
-                            <i class="fas fa-star <?= $i <= round($averageRating) ? 'filled' : '' ?>"></i>
-                        <?php endfor; ?>
-                    </div>
-                    <div class="total-reviews">Berdasarkan <?= count($reviews) ?> ulasan</div>
-                </div>
-            </div>
-
-            <div class="reviews-list">
-                <?php if (empty($reviews)): ?>
-                    <div class="alert alert-secondary text-center">Belum ada ulasan untuk destinasi wisata ini</div>
-                <?php else: ?>
-                    <?php foreach ($reviews as $review): ?>
-                        <div class="review-item-card mb-4">
-                            <div class="review-item-header">
-                                <?php if (session()->get('isLoggedIn') && session()->get('user_id') == $review['user_id']): ?>
-                                    <a href="<?= base_url('destinasi/review/delete/' . $review['review_id']) ?>"
-                                        class="btn-delete-review"
-                                        data-review-id="<?= $review['review_id'] ?>"
-                                        title="Hapus ulasan Anda">×</a>
-                                <?php endif; ?>
-
-                                <div class="review-avatar">
-                                    <i class="fas fa-user"></i>
-                                </div>
-                                <div class="review-user-info">
-                                    <h4 class="user-name"><?= esc($review['nama_user']) ?></h4>
-                                    <small class="review-date">
-                                        <?= date('d M Y', strtotime($review['tanggal_review'])) ?>
-                                    </small>
-                                </div>
-                                <div class="review-item-stars">
-                                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                                        <i class="fas fa-star <?= $i <= $review['rating'] ? 'filled' : '' ?>"></i>
-                                    <?php endfor; ?>
-                                </div>
-                            </div>
-                            <div class="review-item-content">
-                                <p><?= nl2br(esc($review['komentar'])) ?></p>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
-        </div>
+    <div class="destination-media mt-4">
+            <?php if ($embed): ?><iframe class="destination-frame video-frame" src="<?= esc($embed, 'attr') ?>" title="Video <?= esc($wisata['nama'], 'attr') ?>" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe><?php endif; ?>
+            <?php $lat = $wisata['latitude'] ?? null; $lng = $wisata['longitude'] ?? null; if (is_numeric($lat) && is_numeric($lng) && abs((float) $lat) <= 90 && abs((float) $lng) <= 180): ?>
+                <section class="mt-4"><h2>Lokasi destinasi</h2><iframe class="destination-frame" src="https://www.google.com/maps?q=<?= (float) $lat ?>,<?= (float) $lng ?>&amp;output=embed" title="Peta lokasi <?= esc($wisata['nama'], 'attr') ?>" loading="lazy" referrerpolicy="no-referrer" allowfullscreen></iframe><a href="https://www.google.com/maps/search/?api=1&amp;query=<?= (float) $lat ?>,<?= (float) $lng ?>" target="_blank" rel="noopener noreferrer">Buka petunjuk arah <span class="visually-hidden">(tab baru)</span>&rarr;</a></section>
+            <?php endif; ?>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-
-            let currentIndex = 0;
-            const images = document.querySelectorAll('.small-Img');
-            const modal = document.getElementById('imageModal');
-            const modalImage = document.getElementById('modalImage');
-            const closeButton = modal.querySelector('.close');
-            const prevButton = modal.querySelector('.prev');
-            const nextButton = modal.querySelector('.next');
-
-            function openModal(index) {
-                currentIndex = parseInt(index);
-                if (images.length > 0) {
-                    modalImage.src = images[currentIndex].src;
-                    modal.style.display = "block";
-                }
-            }
-
-            function closeModal() {
-                modal.style.display = "none";
-            }
-
-            function moveImage(step) {
-                currentIndex += step;
-                if (currentIndex >= images.length) {
-                    currentIndex = 0;
-                } else if (currentIndex < 0) {
-                    currentIndex = images.length - 1;
-                }
-                modalImage.src = images[currentIndex].src;
-            }
-
-            images.forEach(img => {
-                img.addEventListener('click', function() {
-                    openModal(this.getAttribute('data-index'));
-                });
-            });
-
-            if (closeButton) closeButton.addEventListener('click', closeModal);
-            if (prevButton) prevButton.addEventListener('click', () => moveImage(-1));
-            if (nextButton) nextButton.addEventListener('click', () => moveImage(1));
-
-            function toggleWishlist(button) {
-                const wishlistText = button.querySelector('#wishlistText');
-                const wisataId = button.getAttribute('data-wisata-id');
-                const isWishlisted = button.classList.contains('wishlist-added');
-
-                button.classList.toggle('wishlist-added', !isWishlisted);
-                wishlistText.textContent = isWishlisted ? 'Tambah ke Wishlist' : 'Sudah di Wishlist';
-
-                const action = isWishlisted ? 'remove' : 'add';
-                const url = `<?= base_url('wishlist/') ?>${action}/${wisataId}`;
-
-                fetch(url)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Respon jaringan bermasalah');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            Swal.fire({
-                                toast: true,
-                                position: 'top-end',
-                                icon: 'success',
-                                title: data.message || 'Wishlist diperbarui!',
-                                showConfirmButton: false,
-                                timer: 2000
-                            });
-                        } else {
-                            throw new Error(data.message || 'Gagal memperbarui wishlist.');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error Wishlist:', error);
-
-                        button.classList.toggle('wishlist-added', isWishlisted);
-                        wishlistText.textContent = isWishlisted ? 'Sudah di Wishlist' : 'Tambah ke Wishlist';
-
-                        Swal.fire({
-                            toast: true,
-                            position: 'top-end',
-                            icon: 'error',
-                            title: 'Aksi gagal, coba lagi.',
-                            showConfirmButton: false,
-                            timer: 3000
-                        });
-                    });
-            }
-
-            const wishlistButton = document.getElementById('wishlistButton');
-            if (wishlistButton) {
-                wishlistButton.addEventListener('click', function(event) {
-                    event.preventDefault();
-                    toggleWishlist(this);
-                });
-            }
-
-            const deleteReviewButtons = document.querySelectorAll('.btn-delete-review');
-            deleteReviewButtons.forEach(button => {
-                button.addEventListener('click', function(event) {
-                    event.preventDefault();
-                    const deleteUrl = this.href;
-                    const reviewCard = this.closest('.review-item-card');
-
-                    Swal.fire({
-                        title: 'Hapus Ulasan?',
-                        text: "Anda tidak akan bisa mengembalikan ulasan ini.",
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#d33',
-                        cancelButtonColor: '#3085d6',
-                        confirmButtonText: 'Ya, hapus!',
-                        cancelButtonText: 'Batal'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-
-                            fetch(deleteUrl, {
-                                    method: 'GET',
-                                    headers: {
-                                        "X-Requested-With": "XMLHttpRequest",
-                                    }
-                                })
-                                .then(response => response.json())
-                                .then(data => {
-
-                                    if (data.status === 'success') {
-                                        Swal.fire({
-                                            toast: true,
-                                            position: 'top-end',
-                                            icon: 'success',
-                                            title: data.message,
-                                            showConfirmButton: false,
-                                            timer: 2000
-                                        });
-                                        reviewCard.style.transition = 'opacity 0.5s ease';
-                                        reviewCard.style.opacity = '0';
-                                        setTimeout(() => {
-                                            reviewCard.remove();
-                                        }, 500);
-
-                                    } else {
-                                        throw new Error(data.message || 'Gagal menghapus review.');
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error:', error);
-                                    Swal.fire(
-                                        'Gagal!',
-                                        'Terjadi kesalahan saat menghapus review.',
-                                        'error'
-                                    );
-                                });
-                        }
-                    });
-                });
-            });
-
-            // Close modal when clicking outside the image
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    closeModal();
-                }
-            });
-
-            // Keyboard navigation
-            document.addEventListener('keydown', function(e) {
-                if (modal.style.display === "block") {
-                    if (e.key === "ArrowLeft") {
-                        moveImage(-1);
-                    } else if (e.key === "ArrowRight") {
-                        moveImage(1);
-                    } else if (e.key === "Escape") {
-                        closeModal();
-                    }
-                }
-            });
-        });
-    </script>
-    <?= $this->endSection() ?>
+    <section class="mt-5" aria-labelledby="reviews-title"><div class="section-heading"><div><span class="eyebrow">PENGALAMAN PENGUNJUNG</span><h2 id="reviews-title">Ulasan destinasi</h2><p>Ulasan baru dapat diberikan melalui pesanan setelah kunjungan selesai.</p></div></div>
+        <?php if (!$reviews): ?><div class="empty-state">Belum ada ulasan. Pengalaman Anda bisa membantu pengunjung berikutnya.</div><?php endif; ?>
+        <div class="review-list">
+        <?php foreach ($reviews as $review): ?><article class="review-card"><div class="review-card-header"><div><strong><?= esc($review['nama_user']) ?></strong><p class="muted small"><?= esc(visit_date($review['tanggal_review'])) ?></p></div><span aria-label="<?= (int) $review['rating'] ?> dari 5 bintang"><?= (int) $review['rating'] ?> / 5</span><?php if ((int) session('user_id') === (int) $review['user_id']): ?><button type="button" class="secondary-button" data-delete-review="<?= (int) $review['review_id'] ?>">Hapus ulasan</button><?php endif; ?></div><p><?= nl2br(esc($review['komentar'])) ?></p></article><?php endforeach; ?>
+        </div>
+    </section>
+</div>
+<dialog id="gallery-dialog" aria-labelledby="gallery-title"><div class="dialog-header"><h2 id="gallery-title">Foto <?= esc($wisata['nama']) ?></h2><button type="button" data-close-dialog aria-label="Tutup galeri">&times;</button></div><img id="gallery-image" alt="<?= esc($wisata['nama'], 'attr') ?>"><div class="gallery-controls"><button type="button" class="secondary-button" id="gallery-prev" aria-label="Foto sebelumnya">&larr;</button><span id="gallery-count" aria-live="polite"></span><button type="button" class="secondary-button" id="gallery-next" aria-label="Foto berikutnya">&rarr;</button></div></dialog>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const feedback = document.getElementById('detail-feedback');
+    const message = (text, error = false) => { feedback.className = 'notice notice-' + (error ? 'error' : 'success'); feedback.textContent = text; };
+    const wishlistButton = document.getElementById('wishlist-button');
+    wishlistButton?.addEventListener('click', async () => {
+        const added = wishlistButton.getAttribute('aria-pressed') === 'true'; wishlistButton.disabled = true;
+        try {
+            const response = await Banua.request(<?= json_encode(base_url('wishlist/')) ?> + (added ? 'remove/' : 'add/') + <?= (int) $wisata['wisata_id'] ?>, { method: 'POST' });
+            const result = await response.json(); if (!response.ok || !result.success) throw new Error(result.message || 'Favorit belum berhasil diperbarui.');
+            wishlistButton.setAttribute('aria-pressed', String(!added)); wishlistButton.textContent = added ? 'Simpan ke favorit' : 'Tersimpan di favorit'; message(result.message);
+        } catch (error) { message(error.message, true); } finally { wishlistButton.disabled = false; }
+    });
+    document.querySelectorAll('[data-delete-review]').forEach(button => button.addEventListener('click', async () => {
+        if (!confirm('Hapus ulasan Anda?')) return;
+        button.disabled = true;
+        try {
+            const response = await Banua.request(<?= json_encode(base_url('destinasi/review/delete/')) ?> + button.dataset.deleteReview, { method: 'POST' });
+            const result = await response.json(); if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Ulasan belum berhasil dihapus.');
+            location.reload();
+        } catch (error) { message(error.message, true); button.disabled = false; }
+    }));
+    const images = <?= json_encode($imageUrls, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+    const dialog = document.getElementById('gallery-dialog'); let index = 0;
+    const showImage = () => { document.getElementById('gallery-image').src = images[index]; document.getElementById('gallery-count').textContent = (index + 1) + ' / ' + images.length; };
+    const step = direction => { index = (index + direction + images.length) % images.length; showImage(); };
+    document.querySelectorAll('[data-gallery]').forEach(button => button.addEventListener('click', () => { index = Number(button.dataset.gallery); showImage(); dialog.showModal(); }));
+    document.getElementById('gallery-prev').addEventListener('click', () => step(-1));
+    document.getElementById('gallery-next').addEventListener('click', () => step(1));
+    dialog.addEventListener('keydown', event => { if (event.key === 'ArrowLeft') step(-1); if (event.key === 'ArrowRight') step(1); });
+});
+</script>
+<?= $this->endSection() ?>

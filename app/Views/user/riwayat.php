@@ -1,446 +1,92 @@
 <?= $this->extend('layouts/main') ?>
-
 <?= $this->section('content') ?>
-
-<link rel="stylesheet" href="<?= base_url('css/riwayat.css') ?>">
-
-<header>
-    <h1>Riwayat Anda</h1>
-</header>
-
-<div class="orders-container">
-
-    <?php if (session()->getFlashdata('success')): ?>
-        <div class="alert alert-success">
-            <?= session()->getFlashdata('success') ?>
-        </div>
-    <?php endif; ?>
-
-    <?php if (session()->getFlashdata('error')): ?>
-        <div class="alert alert-danger">
-            <?= session()->getFlashdata('error') ?>
-        </div>
-    <?php endif; ?>
-
-    <?php if (!empty($upcomingBookings)): ?>
-        <?php foreach ($upcomingBookings as $booking): ?>
-            <div class="order-item">
-                <a href="javascript:void(0);"
-                    class="btn-delete-history"
-                    data-booking-id="<?= $booking['booking_id'] ?>"
-                    title="Hapus riwayat ini">
-                    &times;
-                </a>
-
-                <div class="order-header">
-                    <div class="order-status">
-                        <span class="status-tag upcoming">AKAN DATANG</span>
-
-                        <div class="order-date">
-                            <i class="far fa-calendar-alt"></i>
-                            <span>
-                                <?php
-                                echo \CodeIgniter\I18n\Time::parse($booking['tanggal_kunjungan'], 'Asia/Makassar', 'id_ID')
-                                    ->toLocalizedString('d MMMM yyyy');
-                                ?>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-details">
-                    <img src="<?= (filter_var($booking['gambar_wisata'], FILTER_VALIDATE_URL)) ? $booking['gambar_wisata'] : base_url('uploads/wisata/' . ($booking['gambar_wisata'] ?? 'default.jpg')) ?>"
-                        alt="<?= esc($booking['nama']) ?>"
-                        class="product-image">
-                    <div class="product-info-text">
-                        <p class="product-name"><?= esc($booking['nama']) ?></p>
-                        <p class="product-quantity">x<?= $booking['jumlah_orang'] ?> orang</p>
-                    </div>
-                    <div class="product-price">
-                        <span class="discounted-price">Rp <?= number_format($booking['total_harga'], 0, ',', '.') ?></span>
-                    </div>
-                </div>
-
-                <div class="order-footer">
-                    <div class="total-price-summary">
-                        <span>Total Harga:</span>
-                        <span class="total-price">Rp <?= number_format($booking['total_harga'], 0, ',', '.') ?></span>
-                    </div>
-                    <div class="order-actions-bottom">
-                        <a href="<?= base_url('riwayat/cancel/' . $booking['booking_id']) ?>"
-                            class="btn-action secondary-btn"
-                            onclick="return confirm('Apakah Anda yakin ingin membatalkan booking ini?')">
-                            Batalkan
-                        </a>
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    <?php endif; ?>
-
-    <?php if (!empty($completedBookings)): ?>
-        <?php foreach ($completedBookings as $booking): ?>
-            <div class="order-item">
-                <a href="javascript:void(0);"
-                    class="btn-delete-history"
-                    data-booking-id="<?= $booking['booking_id'] ?>"
-                    title="Hapus riwayat ini">
-                    &times;
-                </a>
-
-                <div class="order-header">
-                    <div class="order-status">
-                        <span class="status-tag delivered">SELESAI</span>
-
-                        <div class="order-date">
-                            <i class="far fa-calendar-alt"></i>
-                            <span>
-                                <?php
-                                echo \CodeIgniter\I18n\Time::parse($booking['tanggal_kunjungan'], 'Asia/Makassar', 'id_ID')
-                                    ->toLocalizedString('d MMMM yyyy');
-                                ?>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-details">
-                    <img src="<?= (filter_var($booking['gambar_wisata'], FILTER_VALIDATE_URL)) ? $booking['gambar_wisata'] : base_url('uploads/wisata/' . ($booking['gambar_wisata'] ?? 'default.jpg')) ?>"
-                        alt="<?= esc($booking['nama']) ?>"
-                        class="product-image">
-                    <div class="product-info-text">
-                        <p class="product-name"><?= esc($booking['nama']) ?></p>
-                        <p class="product-quantity">x<?= $booking['jumlah_orang'] ?> orang</p>
-                    </div>
-                    <div class="product-price">
-                        <span class="discounted-price">Rp <?= number_format($booking['total_harga'], 0, ',', '.') ?></span>
-                    </div>
-                </div>
-
-                <div class="order-footer">
-                    <div class="total-price-summary">
-                        <span>Total Harga:</span>
-                        <span class="total-price">Rp <?= number_format($booking['total_harga'], 0, ',', '.') ?></span>
-                    </div>
-                    <div class="order-actions-bottom">
-                        <a href="javascript:void(0);"
-                            onclick="openTicketModal('<?= $booking['booking_id'] ?>')"
-                            class="btn-action primary-btn">
-                            Lihat Tiket
-                        </a>
-                        <a href="javascript:void(0);" onclick="openReviewModal('<?= $booking['wisata_id'] ?>')" class="btn-action primary-btn">Nilai</a>
-                        <a href="<?= base_url('booking/pembelian/' . $booking['wisata_id']) ?>" class="btn-action secondary-btn">Beli Lagi</a>
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    <?php endif; ?>
-
-    <?php if (!empty($canceledBookings)): ?>
-        <?php foreach ($canceledBookings as $booking): ?>
-            <div class="order-item">
-                <a href="javascript:void(0);"
-                    class="btn-delete-history"
-                    data-booking-id="<?= $booking['booking_id'] ?>"
-                    title="Hapus riwayat ini">
-                    &times;
-                </a>
-
-                <div class="order-header">
-                    <div class="order-status">
-                        <span class="status-tag canceled">DIBATALKAN</span>
-
-                        <div class="order-date">
-                            <i class="far fa-calendar-alt"></i>
-                            <span>
-                                <?php
-                                echo \CodeIgniter\I18n\Time::parse($booking['tanggal_kunjungan'], 'Asia/Makassar', 'id_ID')
-                                    ->toLocalizedString('d MMMM yyyy');
-                                ?>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-details">
-                    <img src="<?= (filter_var($booking['gambar_wisata'], FILTER_VALIDATE_URL)) ? $booking['gambar_wisata'] : base_url('uploads/wisata/' . ($booking['gambar_wisata'] ?? 'default.jpg')) ?>"
-                        alt="<?= esc($booking['nama']) ?>"
-                        class="product-image">
-                    <div class="product-info-text">
-                        <p class="product-name"><?= esc($booking['nama']) ?></p>
-                        <p class="product-quantity">x<?= $booking['jumlah_orang'] ?> orang</p>
-                    </div>
-                    <div class="product-price">
-                        <span class="discounted-price">Rp <?= number_format($booking['total_harga'], 0, ',', '.') ?></span>
-                    </div>
-                </div>
-
-                <div class="order-footer">
-                    <div class="total-price-summary">
-                        <span>Total Harga:</span>
-                        <span class="total-price">Rp <?= number_format($booking['total_harga'], 0, ',', '.') ?></span>
-                    </div>
-                    <div class="order-actions-bottom">
-                        <a href="<?= base_url('booking/pembelian/' . $booking['wisata_id']) ?>" class="btn-action secondary-btn">Beli Lagi</a>
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    <?php endif; ?>
-
-    <?php if (empty($upcomingBookings) && empty($completedBookings) && empty($canceledBookings)): ?>
-        <div class="empty-history text-center py-5">
-            <div class="empty-icon">
-                <i class="far fa-calendar-alt"></i>
-            </div>
-            <h3 class="mt-3">Belum Ada Riwayat Kunjungan</h3>
-            <p class="text-muted">Anda belum memiliki riwayat kunjungan.</p>
-            <a href="<?= base_url('destinasi') ?>" class="btn-action primary-btn mt-3">
-                Beli Sekarang
-            </a>
-        </div>
-    <?php endif; ?>
-</div>
-
-<div id="reviewModal" class="modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <h3>Berikan Ulasan</h3>
-        <form id="reviewForm">
-            <input type="hidden" name="wisata_id" id="wisata_id">
-            <div class="mb-3">
-                <label class="form-label">Rating Anda</label>
-                <div class="rating-input">
-                    <?php for ($i = 5; $i >= 1; $i--): ?>
-                        <input type="radio" name="rating" value="<?= $i ?>" id="star<?= $i ?>" required>
-                        <label for="star<?= $i ?>"><i class="fas fa-star"></i></label>
-                    <?php endfor; ?>
-                </div>
-            </div>
-            <div class="mb-3">
-                <label for="komentar" class="form-label">Komentar Anda</label>
-                <textarea class="form-control" id="komentar" name="komentar" rows="4" required placeholder="Ceritakan detail pengalaman Anda di destinasi wisata ini..."></textarea>
-            </div>
-            <div class="review-button-container">
-                <button type="submit" class="btn btn-submit-review">Kirim Ulasan</button>
-            </div>
-        </form>
+<div class="page-wrap">
+    <div class="section-heading"><div><span class="eyebrow">RENCANA PERJALANAN ANDA</span><h1><?= !empty($archived) ? 'Arsip pesanan' : 'Pesanan saya' ?></h1><p>Periksa pembayaran, tanggal kunjungan, dan tiket Anda.</p></div><a href="<?= base_url('riwayat') . (empty($archived) ? '?arsip=1' : '') ?>"><?= empty($archived) ? 'Lihat arsip' : 'Kembali ke pesanan' ?> &rarr;</a></div>
+    <div id="order-feedback" aria-live="polite"></div>
+    <?php foreach (['success', 'error'] as $type): if ($message = session()->getFlashdata($type)): ?><div class="notice notice-<?= $type === 'error' ? 'error' : 'success' ?>" role="<?= $type === 'error' ? 'alert' : 'status' ?>"><?= esc($message) ?></div><?php endif; endforeach; ?>
+    <?php $groups = ['upcoming' => $upcomingBookings, 'completed' => $completedBookings, 'canceled' => $canceledBookings]; ?>
+    <?php if (!array_filter($groups)): ?><div class="empty-state"><h2><?= empty($archived) ? 'Belum ada pesanan' : 'Arsip masih kosong' ?></h2><p><?= empty($archived) ? 'Temukan destinasi pilihan Anda dan mulai rencanakan kunjungan.' : 'Pesanan yang Anda arsipkan akan muncul di sini.' ?></p><a class="primary-button" href="<?= base_url('destinasi') ?>">Jelajahi destinasi</a></div><?php endif; ?>
+    <div class="order-list">
+    <?php foreach ($groups as $status => $bookings): foreach ($bookings as $booking): $paid = ($booking['status_pembayaran'] ?? '') === 'paid'; ?>
+        <article class="order-card" data-order-id="<?= (int) $booking['booking_id'] ?>">
+            <div class="order-card-header"><span class="status-pill <?= !$paid && $status === 'upcoming' ? 'pending' : '' ?>"><?= $status === 'canceled' ? 'Dibatalkan' : ($status === 'completed' ? 'Kunjungan selesai' : ($paid ? 'Siap berkunjung' : 'Menunggu pembayaran')) ?></span><span class="muted">Pesanan #<?= (int) $booking['booking_id'] ?></span></div>
+            <div class="order-card-body"><img src="<?= esc(wisata_image($booking), 'attr') ?>" alt="" loading="lazy" width="100" height="90"><div><h2><a href="<?= base_url('destinasi/detail/' . (int) $booking['wisata_id']) ?>"><?= esc($booking['nama']) ?></a></h2><p><?= esc(visit_date($booking['tanggal_kunjungan'])) ?> · <?= (int) $booking['jumlah_orang'] ?> orang</p><p><?= $paid ? 'Pembayaran terverifikasi' : 'Pembayaran belum terverifikasi' ?></p></div></div>
+            <?php if ($status === 'upcoming' && !$paid): ?><div class="notice">Hubungi pengelola untuk petunjuk pembayaran<?= !empty($booking['kontak_pengelola']) ? ': ' . esc($booking['kontak_pengelola']) : ' melalui informasi di detail destinasi' ?>. Tiket akan tersedia setelah pembayaran diperiksa.</div><?php endif; ?>
+            <div class="order-card-footer"><strong>Rp <?= number_format($booking['total_harga'], 0, ',', '.') ?></strong><div class="order-actions">
+                <?php if ($status !== 'canceled' && $paid): ?><button type="button" class="primary-button" data-ticket="<?= (int) $booking['booking_id'] ?>">Lihat tiket</button><?php endif; ?>
+                <?php if ($status === 'completed' && $paid): ?><button type="button" class="secondary-button" data-review="<?= (int) $booking['wisata_id'] ?>">Tulis ulasan</button><?php endif; ?>
+                <?php if ($status === 'upcoming' && !$paid): ?><form action="<?= base_url('riwayat/cancel/' . (int) $booking['booking_id']) ?>" method="post" data-confirm="Batalkan pesanan ini?"><?= csrf_field() ?><button type="submit" class="secondary-button">Batalkan</button></form><?php endif; ?>
+                <?php if ($status === 'upcoming' && $paid): ?><a class="secondary-button" href="<?= base_url('destinasi/detail/' . (int) $booking['wisata_id']) ?>">Ketentuan pembatalan</a><?php endif; ?>
+                <?php if ($status !== 'upcoming'): ?><button type="button" class="secondary-button" data-archive="<?= (int) $booking['booking_id'] ?>" data-action="<?= empty($archived) ? 'delete' : 'restore' ?>"><?= empty($archived) ? 'Arsipkan' : 'Pulihkan' ?></button><?php endif; ?>
+            </div></div>
+        </article>
+    <?php endforeach; endforeach; ?>
     </div>
 </div>
-
-<div id="ticketModal" class="modal">
-    <div class="modal-content ticket-style">
-        <span class="close-ticket">&times;</span>
-        <div class="ticket-header">
-            <h3>E-TIKET ANDA</h3>
-            <p id="ticketNamaWisata">Nama Wisata</p>
-        </div>
-        <div class="ticket-body">
-            <div id="qrcode" class="qrcode-container">
-            </div>
-            <p class="ticket-instructions">Pindai QR Code ini di pintu masuk</p>
-            <div class="ticket-details">
-                <div class="detail-item">
-                    <span>Kode Tiket:</span>
-                    <strong id="ticketKodeUnik">TIKET-XXXX-XXXX</strong>
-                </div>
-                <div class="detail-item">
-                    <span>Jumlah Pengunjung:</span>
-                    <strong id="ticketJumlahOrang">0 orang</strong>
-                </div>
-                <div class="detail-item">
-                    <span>Total Bayar:</span>
-                    <strong id="ticketTotalHarga">Rp 0</strong>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/davidshimjs-qrcodejs@0.0.2/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<dialog id="ticket-dialog" aria-labelledby="ticket-title">
+    <div class="dialog-header"><h2 id="ticket-title">Tiket kunjungan</h2><button type="button" data-close-dialog aria-label="Tutup tiket">&times;</button></div>
+    <div id="ticket-content"></div><div id="ticket-qr"></div>
+</dialog>
+<dialog id="review-dialog" aria-labelledby="review-title">
+    <div class="dialog-header"><h2 id="review-title">Bagikan pengalaman Anda</h2><button type="button" data-close-dialog aria-label="Tutup form ulasan">&times;</button></div>
+    <form id="review-form"><?= csrf_field() ?><input type="hidden" name="wisata_id" id="review-wisata-id">
+        <div class="field"><label for="review-rating">Penilaian</label><select id="review-rating" name="rating" required><option value="5">5 — Sangat baik</option><option value="4">4 — Baik</option><option value="3">3 — Cukup</option><option value="2">2 — Kurang</option><option value="1">1 — Sangat kurang</option></select></div>
+        <div class="field"><label for="review-comment">Ulasan</label><textarea id="review-comment" name="komentar" rows="4" minlength="10" maxlength="500" required aria-describedby="review-help"></textarea><small id="review-help">10–500 karakter. Ceritakan pengalaman kunjungan Anda.</small></div>
+        <p id="review-feedback" role="alert"></p><button type="submit" class="primary-button">Kirim ulasan</button>
+    </form>
+</dialog>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-
-        const modal = document.getElementById('reviewModal');
-        const closeBtn = document.querySelector('#reviewModal .close');
-
-        window.openReviewModal = function(wisataId) {
-            document.getElementById('wisata_id').value = wisataId;
-            modal.style.display = "block";
-        }
-
-        if (closeBtn) {
-            closeBtn.onclick = function() {
-                modal.style.display = "none";
-            }
-        }
-
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
-        }
-
-        const reviewForm = document.getElementById('reviewForm');
-        if (reviewForm) {
-            reviewForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const formData = new FormData(this);
-                fetch('<?= base_url('destinasi/addReview') ?>', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            document.getElementById('reviewModal').style.display = 'none';
-
-                            Swal.fire({
-                                title: 'Berhasil!',
-                                text: 'Ulasan berhasil ditambahkan!',
-                                icon: 'success',
-                                timer: 2000,
-                                showConfirmButton: false
-                            }).then(() => {
-                                location.reload();
-                            });
-
-                        } else {
-                            Swal.fire('Gagal', data.message || 'Gagal menambahkan ulasan.', 'error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        Swal.fire('Error', 'Terjadi kesalahan saat mengirim ulasan.', 'error');
-                    });
-            });
-        }
-
-        const deleteButtons = document.querySelectorAll('.btn-delete-history');
-
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-
-                const bookingId = this.getAttribute('data-booking-id');
-                const url = `<?= base_url('riwayat/delete/') ?>${bookingId}`;
-                const historyItemElement = this.closest('.order-item');
-
-                Swal.fire({
-                    title: 'Apakah kamu yakin?',
-                    text: "Riwayat ini akan dihapus permanen!",
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#555',
-                    confirmButtonText: 'Ya, hapus!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-
-                        fetch(url, {
-                                method: 'GET',
-                                headers: {
-                                    'X-Requested-With': 'XMLHttpRequest'
-                                }
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    Swal.fire('Terhapus!', 'Riwayat berhasil dihapus.', 'success');
-
-                                    historyItemElement.style.transition = 'opacity 0.3s, transform 0.3s';
-                                    historyItemElement.style.opacity = '0';
-                                    historyItemElement.style.transform = 'scale(0.95)';
-                                    setTimeout(() => {
-                                        historyItemElement.remove();
-                                    }, 300);
-
-                                } else {
-                                    Swal.fire('Gagal', data.message || 'Gagal menghapus riwayat.', 'error');
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                Swal.fire('Error', 'Tidak dapat menghubungi server.', 'error');
-                            });
-                    }
-                });
-            });
-        });
-
-        const ticketModal = document.getElementById('ticketModal');
-        const closeTicketBtn = document.querySelector('.close-ticket');
-        const qrCodeContainer = document.getElementById('qrcode');
-
-        let qrcode = null;
-
-        window.openTicketModal = function(bookingId) {
-            const url = `<?= base_url('riwayat/tiket/') ?>${bookingId}`;
-
-            qrCodeContainer.innerHTML = 'Memuat tiket...';
-            ticketModal.style.display = "block";
-
-            fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Gagal memuat data tiket.');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.status === 'success') {
-                        const ticketData = data.data;
-                        document.getElementById('ticketNamaWisata').textContent = ticketData.nama_wisata;
-                        document.getElementById('ticketKodeUnik').textContent = ticketData.kode_tiket;
-                        document.getElementById('ticketJumlahOrang').textContent = ticketData.jumlah_orang + ' orang';
-                        document.getElementById('ticketTotalHarga').textContent = ticketData.total_harga;
-
-                        qrCodeContainer.innerHTML = '';
-
-                        qrcode = new QRCode(qrCodeContainer, {
-                            text: ticketData.kode_tiket,
-                            width: 200,
-                            height: 200,
-                            colorDark: "#000000",
-                            colorLight: "#ffffff",
-                            correctLevel: QRCode.CorrectLevel.H
-                        });
-
-                    } else {
-                        Swal.fire('Gagal', data.message || 'Tidak dapat mengambil data tiket.', 'error');
-                        ticketModal.style.display = "none";
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire('Error', 'Terjadi kesalahan jaringan.', 'error');
-                    ticketModal.style.display = "none";
-                });
-        }
-
-        if (closeTicketBtn) {
-            closeTicketBtn.onclick = function() {
-                ticketModal.style.display = "none";
-            }
-        }
-
-        window.addEventListener('click', function(event) {
-            if (event.target == ticketModal) {
-                ticketModal.style.display = "none";
-            }
-        });
-
+document.addEventListener('DOMContentLoaded', () => {
+    const ticketDialog = document.getElementById('ticket-dialog');
+    const reviewDialog = document.getElementById('review-dialog');
+    const feedback = document.getElementById('order-feedback');
+    const showFeedback = (message, error = false) => {
+        feedback.className = 'notice notice-' + (error ? 'error' : 'success');
+        feedback.textContent = message;
+        feedback.scrollIntoView({ block: 'nearest' });
+    };
+    document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
+    document.querySelectorAll('[data-ticket]').forEach(button => button.addEventListener('click', async () => {
+        const content = document.getElementById('ticket-content');
+        const qr = document.getElementById('ticket-qr');
+        content.textContent = 'Memuat tiket…'; qr.replaceChildren(); ticketDialog.showModal();
+        try {
+            const response = await Banua.request(<?= json_encode(base_url('riwayat/tiket/')) ?> + button.dataset.ticket);
+            const result = await response.json();
+            if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Tiket belum tersedia.');
+            content.replaceChildren();
+            const values = [result.data.nama_wisata, result.data.tanggal_kunjungan + ' · ' + result.data.jumlah_orang + ' orang', result.data.total_harga, result.data.sudah_digunakan ? 'Tiket sudah digunakan' : 'Tunjukkan tiket ini kepada pengelola saat berkunjung'];
+            values.forEach(value => { const p = document.createElement('p'); p.textContent = value; content.appendChild(p); });
+            const code = document.createElement('p'); code.className = 'ticket-code'; code.textContent = result.data.kode_tiket; content.appendChild(code);
+            if (!result.data.sudah_digunakan && typeof QRCode !== 'undefined') new QRCode(qr, { text: result.data.kode_tiket, width: 180, height: 180 });
+        } catch (error) { content.textContent = error.message; }
+    }));
+    document.querySelectorAll('[data-archive]').forEach(button => button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+            const response = await Banua.request(<?= json_encode(base_url('riwayat/')) ?> + button.dataset.action + '/' + button.dataset.archive, { method: 'POST' });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || 'Tindakan belum berhasil.');
+            button.closest('.order-card').remove(); showFeedback(result.message);
+        } catch (error) { showFeedback(error.message, true); button.disabled = false; }
+    }));
+    document.querySelectorAll('[data-review]').forEach(button => button.addEventListener('click', () => {
+        document.getElementById('review-form').reset();
+        document.getElementById('review-wisata-id').value = button.dataset.review;
+        document.getElementById('review-feedback').textContent = '';
+        reviewDialog.showModal();
+    }));
+    document.getElementById('review-form').addEventListener('submit', async event => {
+        event.preventDefault(); const form = event.currentTarget; const button = form.querySelector('[type="submit"]'); button.disabled = true;
+        try {
+            const response = await Banua.request(<?= json_encode(base_url('destinasi/addReview')) ?>, { method: 'POST', body: new FormData(form) });
+            const result = await response.json();
+            if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Ulasan belum berhasil disimpan.');
+            reviewDialog.close(); showFeedback(result.message);
+        } catch (error) { document.getElementById('review-feedback').textContent = error.message; }
+        finally { button.disabled = false; }
     });
+});
 </script>
-
 <?= $this->endSection() ?>

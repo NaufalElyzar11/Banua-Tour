@@ -29,14 +29,12 @@ class UserModel extends Model
     protected function beforeInsert(array $data)
     {
         $data = $this->getUpdatedDataWithHashedPassword($data);
-        log_message('debug', 'Before Insert Data: ' . json_encode($data));
         return $data;
     }
 
     protected function beforeUpdate(array $data)
     {
         $data = $this->getUpdatedDataWithHashedPassword($data);
-        log_message('debug', 'Before Update Data: ' . json_encode($data));
         return $data;
     }
 
@@ -44,8 +42,7 @@ class UserModel extends Model
     {
         if (isset($data['data']['password'])) {
             $plaintextPassword = $data['data']['password'];
-            log_message('debug', 'Hashing password for: ' . ($data['data']['username'] ?? 'unknown user'));
-            $data['data']['password'] = password_hash($plaintextPassword, PASSWORD_DEFAULT);
+            $data['data']['password'] = password_hash($plaintextPassword, PASSWORD_ARGON2ID);
         }
         return $data;
     }

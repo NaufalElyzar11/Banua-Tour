@@ -2,17 +2,18 @@
 <?= $this->section('content') ?>
 <h1 class="h3 mb-4 text-gray-800">Edit User</h1>
 <form action="<?= base_url('admin/users/update/' . $user['user_id']) ?>" method="post">
+    <?= csrf_field() ?>
     <div class="form-group">
         <label>Nama</label>
-        <input type="text" name="nama" class="form-control" value="<?= old('nama', $user['nama']) ?>" required>
+        <input type="text" name="nama" class="form-control" value="<?= esc(old('nama', $user['nama']) ?? '') ?>" required>
     </div>
     <div class="form-group">
         <label>Username</label>
-        <input type="text" name="username" class="form-control" value="<?= old('username', $user['username']) ?>" required>
+        <input type="text" name="username" class="form-control" value="<?= esc(old('username', $user['username']) ?? '') ?>" required>
     </div>
     <div class="form-group">
         <label>Email</label>
-        <input type="text" name="email" class="form-control" value="<?= old('email', $user['email']) ?>" required>
+        <input type="text" name="email" class="form-control" value="<?= esc(old('email', $user['email']) ?? '') ?>" required>
     </div>
     <div class="form-group">
         <label>Daerah</label>

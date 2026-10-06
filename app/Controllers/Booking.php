@@ -2,118 +2,65 @@
 
 namespace App\Controllers;
 
+use App\Libraries\BookingService;
 use App\Models\BookingModel;
 use App\Models\WisataModel;
 
 class Booking extends BaseController
 {
-    protected $bookingModel;
-    protected $wisataModel;
-
-    public function __construct()
-    {
-        if (!session()->get('isLoggedIn')) {
-            header('Location: ' . base_url('auth/login'));
-            exit();
-        }
-
-        $this->bookingModel = new BookingModel();
-        $this->wisataModel = new WisataModel();
-    }
-
     public function index()
     {
-        return redirect()->to('riwayat');
+        return redirect()->to(base_url('riwayat'));
     }
 
     public function create($wisataId)
     {
-        if (!session()->get('isLoggedIn')) {
-            return redirect()->to('auth/login')->with('error', 'Silahkan login terlebih dahulu untuk melakukan pemesanan.');
-        }
-
-        $wisata = $this->wisataModel
-            ->select('wisata.*, kategori.nama_kategori')
-            ->join('kategori', 'kategori.kategori_id = wisata.kategori_id', 'left')
-            ->find($wisataId);
-
+        $wisata = (new WisataModel())->select('wisata.*, kategori.nama_kategori')
+            ->join('kategori', 'kategori.kategori_id = wisata.kategori_id', 'left')->find($wisataId);
         if (!$wisata) {
-            return redirect()->back()->with('error', 'Destinasi tidak ditemukan.');
+            return redirect()->to(base_url('destinasi'))->with('error', 'Destinasi tidak ditemukan.');
         }
-
-        $data = [
-            'title' => 'Pembelian Tiket',
-            'user' => [
-                'user_id' => session()->get('user_id'),
-                'nama' => session()->get('nama'),
-                'email' => session()->get('email'),
-                'username' => session()->get('username'),
-                'role' => session()->get('role'),
-                'daerah' => session()->get('daerah') ?? 'Indonesia'
-            ],
-            'wisata' => $wisata
-        ];
-
-        return view('booking/create', $data);
+        $token = bin2hex(random_bytes(32));
+        $tokens = array_filter(session()->get('booking_tokens') ?? [], static fn ($item) => $item['expires'] > time());
+        $tokens = array_slice($tokens, -9, null, true);
+        $tokens[$token] = ['wisata_id' => (int) $wisataId, 'expires' => time() + 7200];
+        session()->set('booking_tokens', $tokens);
+        return view('booking/create', [
+            'title' => 'Pesan Kunjungan', 'wisata' => $wisata, 'bookingToken' => $token,
+        ]);
     }
 
     public function store()
     {
-        $rules = [
-            'wisata_id' => 'required|numeric',
-            'tanggal_kunjungan' => 'required|valid_date',
-            'jumlah_orang' => 'required|numeric|greater_than[0]'
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('error', 'Form pembelian tidak valid. Periksa kembali input Anda.');
+        if (!$this->validate([
+            'wisata_id' => 'required|is_natural_no_zero',
+            'tanggal_kunjungan' => 'required|valid_date[Y-m-d]',
+            'jumlah_orang' => 'required|is_natural_no_zero|less_than_equal_to[100]',
+            'booking_token' => 'required|exact_length[64]|alpha_numeric',
+        ])) {
+            return redirect()->back()->with('error', 'Periksa tanggal dan jumlah pengunjung (1–100 orang).');
         }
-
-        $wisataId = $this->request->getPost('wisata_id');
-        $wisata = $this->wisataModel->find($wisataId);
+        $token = $this->request->getPost('booking_token');
+        $wisataId = (int) $this->request->getPost('wisata_id');
+        $tokens = session()->get('booking_tokens') ?? [];
+        if (!isset($tokens[$token]) || $tokens[$token]['expires'] < time() || $tokens[$token]['wisata_id'] !== $wisataId) {
+            return redirect()->to(base_url('booking/pembelian/' . $wisataId))->with('error', 'Form sudah kedaluwarsa. Silakan isi kembali.');
+        }
+        $wisata = (new WisataModel())->find($wisataId);
         if (!$wisata) {
-            return redirect()->back()->with('error', 'Destinasi tidak ditemukan.');
+            return redirect()->to(base_url('destinasi'))->with('error', 'Destinasi tidak ditemukan.');
         }
-
-        $jumlahOrang = $this->request->getPost('jumlah_orang');
-        $totalHarga = $wisata['harga'] * $jumlahOrang;
-
-        $bookingData = [
-            'user_id' => session()->get('user_id'),
-            'wisata_id' => $wisataId,
-            'tanggal_kunjungan' => $this->request->getPost('tanggal_kunjungan'),
-            'jumlah_orang' => $jumlahOrang,
-            'total_harga' => $totalHarga,
-            'status' => 'completed'
-        ];
-
         try {
-            $this->bookingModel->insert($bookingData);
-            return redirect()->to('riwayat')->with('success', '');
-        } catch (\Exception $e) {
-            log_message('error', 'Error creating booking: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Terjadi kesalahan saat melakukan pembelian.');
-        }
-    }
-
-    public function completePayment($bookingId)
-    {
-        $userId = session()->get('user_id');
-
-        $booking = $this->bookingModel->find($bookingId);
-        if (!$booking || $booking['user_id'] != $userId) {
-            return redirect()->back()->with('error', 'Booking tidak ditemukan.');
-        }
-
-        try {
-            $this->bookingModel->update($bookingId, [
-                'status' => 'completed'
-            ]);
-
-            return redirect()->to('riwayat')->with('success', 'Pembayaran berhasil. Terima kasih atas kunjungan Anda!');
-        } catch (\Exception $e) {
-            log_message('error', 'Error processing payment: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Terjadi kesalahan saat memproses pembayaran.');
+            (new BookingService())->reserve(
+                (int) session('user_id'), $wisata, $this->request->getPost('tanggal_kunjungan'),
+                (string) $this->request->getPost('jumlah_orang'), $token
+            );
+            return redirect()->to(base_url('riwayat'))->with('success', 'Pesanan tersimpan. Pembayaran belum dikonfirmasi; lihat petunjuk pengelola di detail destinasi.');
+        } catch (\DomainException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            log_message('error', 'Pemesanan gagal: {exception}', ['exception' => $e]);
+            return redirect()->back()->with('error', 'Pesanan belum berhasil disimpan. Silakan coba lagi.');
         }
     }
 }

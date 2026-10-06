@@ -16,7 +16,7 @@ class BeritaModel extends Model
         'judul',
         'konten',
         'gambar',
-        'status'
+        'status', 'wisata_id', 'link_berita', 'tanggal_post'
     ];
 
     protected $useTimestamps = true;
@@ -54,6 +54,7 @@ class BeritaModel extends Model
 
             return $this->select('berita.*, wisata.nama, wisata.gambar_wisata')
                 ->join('wisata', 'wisata.wisata_id = berita.wisata_id', 'left')
+                ->where('berita.status', 'published')
                 ->orderBy($sortField, 'DESC')
                 ->limit($limit)
                 ->find();

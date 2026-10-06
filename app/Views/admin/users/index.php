@@ -32,6 +32,7 @@
                             <td>
                                 <a href="<?= base_url('admin/users/edit/' . $user['user_id']) ?>" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
                                 <form action="<?= base_url('admin/users/delete/' . $user['user_id']) ?>" method="post" style="display:inline;" onsubmit="return confirm('Yakin ingin menghapus?')">
+    <?= csrf_field() ?>
                                     <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
                                 </form>
                             </td>

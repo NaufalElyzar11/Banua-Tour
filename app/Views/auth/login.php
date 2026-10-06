@@ -1,57 +1,13 @@
 <?= $this->extend('layouts/auth') ?>
-
 <?= $this->section('content') ?>
-
-<head>
-  <meta charset="UTF-8">
-  <link rel='stylesheet' href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css'>
-  <link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Poppins&amp;display=swap'>
-  <link rel="stylesheet" href="<?= base_url('css/login.css') ?>">
-</head>
-
-<body>
-  <div class="wrapper">
-    <div class="login_box">
-      <div class="login-header">
-        <span>Masuk</span>
-      </div>
-
-      <?php if (session()->getFlashdata('error')) : ?>
-        <div class="alert alert-danger">
-          <?= session()->getFlashdata('error') ?>
-        </div>
-      <?php endif; ?>
-
-      <?php if (session()->getFlashdata('success')) : ?>
-        <div class="alert alert-success">
-          <?= session()->getFlashdata('success') ?>
-        </div>
-      <?php endif; ?>
-
-      <form action="<?= base_url('auth/doLogin') ?>" method="post">
-        <?= csrf_field() ?>
-
-        <div class="input_box">
-          <input type="text" id="email" name="email" class="input-field" required value="<?= esc(old('email')) ?>">
-          <label for="email" class="label">Email atau Nama Pengguna</label>
-          <i class="bx bx-user icon"></i>
-        </div>
-
-        <div class="input_box">
-          <input type="password" id="password" name="password" class="input-field" required>
-          <label for="password" class="label">Kata Sandi</label>
-          <i class="bx bx-lock-alt icon"></i>
-        </div>
-
-        <div class="input_box">
-          <input type="submit" class="input-submit" value="Login">
-        </div>
-      </form>
-
-      <div class="register">
-        <span>Anda Tidak Punya Akun? <a href="<?= base_url('auth/register') ?>">Daftar di sini</a></span>
-      </div>
-    </div>
-  </div>
-</body>
+<span class="eyebrow">SELAMAT DATANG KEMBALI</span>
+<h1>Masuk ke BanuaTour</h1>
+<p class="muted">Lanjutkan rencana perjalanan dan lihat destinasi favorit Anda.</p>
+<form action="<?= base_url('auth/doLogin') ?>" method="post" class="auth-form">
+    <?= csrf_field() ?>
+    <div class="field"><label for="email">Email atau nama pengguna</label><input type="text" id="email" name="email" value="<?= esc(old('email') ?? '', 'attr') ?>" required maxlength="254" autocomplete="username" autofocus></div>
+    <div class="field"><label for="password">Kata sandi</label><div class="password-field"><input type="password" id="password" name="password" required autocomplete="current-password"><button type="button" data-password-toggle="password" aria-controls="password" aria-pressed="false">Tampilkan</button></div></div>
+    <button class="primary-button" type="submit">Masuk</button>
+</form>
+<p class="auth-switch">Belum punya akun? <a href="<?= base_url('auth/register') ?>">Daftar</a></p>
 <?= $this->endSection() ?>

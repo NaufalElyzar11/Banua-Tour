@@ -1,143 +1,23 @@
 <?= $this->extend('layouts/main') ?>
-
 <?= $this->section('content') ?>
-
-<link rel="stylesheet" href="<?= base_url('css/destinasi.css') ?>">
-<div class="container mt-4">
-    <h2 class="mb-4 text-center"><?= $title ?></h2>
-
-    <div class="search-container mb-4">
-        <form action="<?= base_url('destinasi/search') ?>" method="get" class="search-form">
-            <input type="text" name="keyword" placeholder="Cari destinasi wisata..." required>
-            <button type="submit"><i class="fas fa-search"></i> Cari </button>
-        </form>
-    </div>
-
-    <div class="filter-container mb-4">
-        <div class="filters">
-            <label>
-                <span>Kategori:</span>
-                <select id="kategori-filter" class="form-select">
-                    <option value="">Semua Kategori</option>
-                    <?php foreach ($kategoriList as $kategori) : ?>
-                        <option value="<?= $kategori['kategori_id'] ?>"><?= esc($kategori['nama_kategori']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label>
-                <span>Daerah:</span>
-                <select id="daerah-filter" class="form-select">
-                    <option value="">Semua Daerah</option>
-                    <?php
-                    $daerahList = [];
-                    foreach ($wisata as $item) {
-                        if (!empty($item['daerah']) && !in_array($item['daerah'], $daerahList)) {
-                            $daerahList[] = $item['daerah'];
-                            echo '<option value="' . esc($item['daerah']) . '">' . esc($item['daerah']) . '</option>';
-                        }
-                    }
-                    ?>
-                </select>
-            </label>
-            <label>
-                <span>Urutkan:</span>
-                <select id="sort-filter" class="form-select">
-                    <option value="name-asc">Nama (A-Z)</option>
-                    <option value="name-desc">Nama (Z-A)</option>
-                    <option value="price-asc">Harga (Terendah)</option>
-                    <option value="price-desc">Harga (Tertinggi)</option>
-                </select>
-            </label>
-        </div>
-    </div>
-
-    <?php if (session()->getFlashdata('error')): ?>
-        <div class="alert alert-danger">
-            <?= session()->getFlashdata('error') ?>
-        </div>
-    <?php endif; ?>
-
-    <?php if (!empty($wisata)): ?>
-        <div class="wisata-grid">
-            <?php foreach ($wisata as $item): ?>
-                <div class="wisata-card"
-                    data-kategori="<?= esc($item['kategori_id'] ?? '0') ?>"
-                    data-daerah="<?= esc($item['daerah'] ?? 'Indonesia') ?>"
-                    data-nama="<?= esc($item['nama'] ?? '') ?>"
-                    data-harga="<?= $item['harga'] ?? 0 ?>">
-                    <a href="<?= base_url('destinasi/detail/' . $item['wisata_id']) ?>" class="card-link">
-                        <img src="<?= esc($item['gambar_wisata']) ?>" alt="<?= esc($item['nama']) ?>" class="wisata-img">
-                        <div class="wisata-content">
-                            <div class="wisata-labels">
-                                <span class="badge"><?= esc($item['nama_kategori'] ?? 'Umum') ?></span>
-                                <span class="badge daerah"><?= esc($item['daerah'] ?? 'Indonesia') ?></span>
-                            </div>
-                            <h3><?= esc($item['nama']) ?></h3>
-                            <p class="price">Rp <?= number_format($item['harga'] ?? 0, 0, ',', '.') ?></p>
-                            <p class="description"><?= esc(substr($item['deskripsi'] ?? '', 0, 100)) ?>...</p>
-                        </div>
-                    </a>
-                </div>
-            <?php endforeach; ?>
-        </div>
+<div class="page-wrap">
+    <span class="eyebrow">PILIH TUJUAN ANDA</span>
+    <h1>Jelajahi destinasi</h1>
+    <p class="muted">Temukan tempat yang sesuai dengan rencana, lokasi, dan anggaran Anda.</p>
+    <form action="<?= base_url('destinasi') ?>" method="get" class="filter-container catalog-filters">
+        <div class="field search-field"><label for="keyword">Nama tempat atau daerah</label><input id="keyword" name="keyword" type="search" value="<?= esc($filters['keyword'], 'attr') ?>" placeholder="Contoh: Loksado" maxlength="100"></div>
+        <div class="field"><label for="kategori">Kategori</label><select id="kategori" name="kategori"><option value="">Semua kategori</option><?php foreach ($kategoriList as $item): ?><option value="<?= (int) $item['kategori_id'] ?>" <?= $filters['kategori'] === (string) $item['kategori_id'] ? 'selected' : '' ?>><?= esc($item['nama_kategori']) ?></option><?php endforeach; ?></select></div>
+        <div class="field"><label for="daerah">Daerah</label><select id="daerah" name="daerah"><option value="">Semua daerah</option><?php foreach ($daerahList as $daerah): ?><option value="<?= esc($daerah, 'attr') ?>" <?= $filters['daerah'] === $daerah ? 'selected' : '' ?>><?= esc($daerah) ?></option><?php endforeach; ?></select></div>
+        <div class="field"><label for="sort">Urutkan</label><select id="sort" name="sort"><?php foreach (['name-asc' => 'Nama A–Z', 'name-desc' => 'Nama Z–A', 'price-asc' => 'Harga terendah', 'price-desc' => 'Harga tertinggi'] as $value => $label): ?><option value="<?= $value ?>" <?= $filters['sort'] === $value ? 'selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></div>
+        <button class="primary-button" type="submit">Cari</button>
+    </form>
+    <div class="catalog-results" aria-live="polite"><span><?= number_format($pager->getTotal()) ?> destinasi ditemukan<?= $filters['keyword'] !== '' ? ' untuk “' . esc($filters['keyword']) . '”' : '' ?></span><a href="<?= base_url('destinasi') ?>">Reset filter</a></div>
+    <?php if ($message = session()->getFlashdata('error')): ?><div class="notice notice-error" role="alert"><?= esc($message) ?></div><?php endif; ?>
+    <?php if ($wisata): ?>
+        <div class="destination-grid"><?php foreach ($wisata as $item): ?><?= view('partials/destination_card', ['item' => $item]) ?><?php endforeach; ?></div>
+        <?= $pager->only(['keyword', 'kategori', 'daerah', 'sort'])->links('default', 'catalog') ?>
     <?php else: ?>
-        <div class="alert alert-info">Tidak ada destinasi wisata untuk ditampilkan.</div>
+        <div class="empty-state"><h2>Belum ada hasil yang sesuai</h2><p>Coba nama daerah lain atau kurangi filter pencarian.</p><a class="secondary-button" href="<?= base_url('destinasi') ?>">Lihat semua destinasi</a></div>
     <?php endif; ?>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const kategoriFilter = document.getElementById('kategori-filter');
-        const daerahFilter = document.getElementById('daerah-filter');
-        const sortFilter = document.getElementById('sort-filter');
-        const wisataCards = document.querySelectorAll('.wisata-card');
-
-        function applyFilters() {
-            const selectedKategori = kategoriFilter.value;
-            const selectedDaerah = daerahFilter.value;
-            const sortOption = sortFilter.value;
-
-
-            const wisataArray = Array.from(wisataCards);
-
-
-            wisataArray.sort((a, b) => {
-                if (sortOption === 'name-asc') {
-                    return a.dataset.nama.localeCompare(b.dataset.nama);
-                } else if (sortOption === 'name-desc') {
-                    return b.dataset.nama.localeCompare(a.dataset.nama);
-                } else if (sortOption === 'price-asc') {
-                    return parseInt(a.dataset.harga) - parseInt(b.dataset.harga);
-                } else if (sortOption === 'price-desc') {
-                    return parseInt(b.dataset.harga) - parseInt(a.dataset.harga);
-                }
-                return 0;
-            });
-
-            wisataCards.forEach(card => {
-                card.style.display = 'none';
-            });
-
-            wisataArray.forEach(card => {
-                const cardKategori = card.dataset.kategori;
-                const cardDaerah = card.dataset.daerah;
-
-                if ((selectedKategori === '' || cardKategori === selectedKategori) &&
-                    (selectedDaerah === '' || cardDaerah === selectedDaerah)) {
-                    card.style.display = 'block';
-                }
-            });
-
-
-            const container = document.querySelector('.wisata-grid');
-            wisataArray.forEach(card => {
-                container.appendChild(card);
-            });
-        }
-
-        kategoriFilter.addEventListener('change', applyFilters);
-        daerahFilter.addEventListener('change', applyFilters);
-        sortFilter.addEventListener('change', applyFilters);
-    });
-</script>
 <?= $this->endSection() ?>

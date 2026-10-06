@@ -6,6 +6,7 @@ use CodeIgniter\Config\BaseConfig;
 
 class Migrations extends BaseConfig
 {
+    public bool $lock = true;
     /**
      * --------------------------------------------------------------------------
      * Enable/Disable Migrations

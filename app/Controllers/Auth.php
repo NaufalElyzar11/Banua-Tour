@@ -2,158 +2,92 @@
 
 namespace App\Controllers;
 
-use CodeIgniter\Controller;
+use App\Models\UserModel;
 
 class Auth extends BaseController
 {
-    protected $userModel;
-
-    public function __construct()
-    {
-        $this->userModel = new \App\Models\UserModel();
-    }
-
-    public function index()
-    {
-        return redirect()->to('/auth/login');
-    }
-
     public function login()
     {
-        if (session()->get('user_id')) {
-            return redirect()->to('/user_home');
+        if (session()->get('isLoggedIn')) {
+            return redirect()->to(base_url(session('role') === 'admin' ? 'admin' : 'user_home'));
         }
-
-        if ($this->request->getMethod() === 'post') {
-            $rules = [
-                'username' => 'required',
-                'password' => 'required'
-            ];
-
-            if ($this->validate($rules)) {
-                $username = $this->request->getPost('username');
-                $password = $this->request->getPost('password');
-
-                $user = $this->userModel->where('username', $username)->first();
-
-                if ($user && password_verify($password, $user['password'])) {
-                    $sessionData = [
-                        'user_id' => $user['user_id'],
-                        'username' => $user['username'],
-                        'nama' => $user['nama'],
-                        'role' => $user['role'],
-                        'isLoggedIn' => true
-                    ];
-
-                    session()->set($sessionData);
-
-                    if ($user['role'] === 'admin') {
-                        return redirect()->to('/admin/dashboard');
-                    }
-
-                    return redirect()->to('/user_home');
-                }
-
-                return redirect()->back()->with('error', 'Username atau password salah');
-            }
-
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
-        }
-
-        return view('auth/login');
+        return view('auth/login', ['title' => 'Masuk']);
     }
 
     public function doLogin()
     {
-        $email = $this->request->getPost('email');
-        $password = $this->request->getPost('password');
-
-        $userModel = new \App\Models\UserModel();
-
-        log_message('debug', 'Login attempt with email/username: ' . $email);
-
-        $user = $userModel->where('email', $email)
-            ->orWhere('username', $email)
-            ->first();
-
-        if ($user) {
-            log_message('debug', 'User found: ' . json_encode($user));
-
-            if (password_verify($password, $user['password'])) {
-                log_message('debug', 'Password verified successfully');
-                session()->set([
-                    'user_id' => $user['user_id'],
-                    'nama' => $user['nama'],
-                    'email' => $user['email'],
-                    'username' => $user['username'],
-                    'role' => $user['role'],
-                    'isLoggedIn' => true
-                ]);
-
-                if ($user['role'] === 'admin') {
-                    return redirect()->to('/admin/dashboard');
-                }
-
-                return redirect()->to('/user_home');
-            } else {
-                log_message('debug', 'Password verification failed');
-            }
-        } else {
-            log_message('debug', 'No user found with email/username: ' . $email);
+        if (!$this->validate(['email' => 'required|max_length[254]', 'password' => 'required|max_length[1024]'])) {
+            return redirect()->to(base_url('auth/login'))->with('error', 'Isi email atau nama pengguna dan kata sandi.');
         }
-
-        session()->setFlashdata('error', 'Email/Username atau password salah');
-        return redirect()->back()->withInput();
+        $identifier = trim($this->request->getPost('email'));
+        $password = $this->request->getPost('password');
+        $model = new UserModel();
+        $user = $model->groupStart()->where('email', $identifier)->orWhere('username', $identifier)->groupEnd()->first();
+        // Verify on both paths to reduce account enumeration by timing.
+        $hash = $user['password'] ?? '$argon2id$v=19$m=65536,t=4,p=1$VFZZY1VGR1ovSkJlSHhOVQ$uvzXj8rL99tLHOnTxWiPp3WU2HpFesvoYrA9P1asxhU';
+        if (!password_verify($password, $hash) || !$user) {
+            session()->setFlashdata('_ci_old_input', ['get' => [], 'post' => ['email' => $identifier]]);
+            return redirect()->to(base_url('auth/login'))->with('error', 'Email/nama pengguna atau kata sandi salah.');
+        }
+        if (password_needs_rehash($user['password'], PASSWORD_ARGON2ID)) {
+            $model->update($user['user_id'], ['password' => $password]);
+        }
+        $returnTo = session()->get('return_to');
+        session()->remove('return_to');
+        session()->regenerate(true);
+        session()->set([
+            'user_id' => $user['user_id'], 'nama' => $user['nama'], 'email' => $user['email'],
+            'username' => $user['username'], 'role' => $user['role'], 'daerah' => $user['daerah'],
+            'isLoggedIn' => true,
+        ]);
+        $target = $user['role'] === 'admin' ? 'admin' : 'user_home';
+        if ($user['role'] !== 'admin' && is_string($returnTo) && preg_match('~\A(?:booking/pembelian/[0-9]+|profile|wishlist|riwayat)\z~', $returnTo)) {
+            $target = $returnTo;
+        }
+        return redirect()->to(base_url($target));
     }
 
     public function register()
     {
-        if (session()->get('user_id')) {
-            return redirect()->to('/user_home');
+        if (session()->get('isLoggedIn')) {
+            return redirect()->to(base_url('user_home'));
         }
-
-        return view('auth/register');
+        return view('auth/register', ['title' => 'Daftar']);
     }
 
     public function doRegister()
     {
         $rules = [
-            'nama' => 'required|min_length[3]',
-            'username' => 'required|min_length[3]|is_unique[users.username]',
-            'email' => 'required|valid_email|is_unique[users.email]',
-            'password' => 'required|min_length[6]',
+            'nama' => 'required|min_length[2]|max_length[100]',
+            'username' => 'required|min_length[3]|max_length[50]|alpha_dash|is_unique[users.username]',
+            'email' => 'required|valid_email|max_length[254]|is_unique[users.email]',
+            'password' => 'required|min_length[12]|max_length[72]',
             'confirm_password' => 'required|matches[password]',
-            'daerah' => 'required',
-            'jenis_kelamin' => 'required|in_list[L,P]',
-            'umur' => 'required|numeric|greater_than[0]'
         ];
-
         if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+            session()->setFlashdata('_ci_old_input', ['get' => [], 'post' => array_intersect_key(
+                $this->request->getPost(), array_flip(['nama', 'username', 'email'])
+            )]);
+            return redirect()->to(base_url('auth/register'))->with('errors', $this->validator->getErrors());
         }
-
-        $userModel = new \App\Models\UserModel();
-
-        $data = [
-            'nama' => $this->request->getPost('nama'),
-            'username' => $this->request->getPost('username'),
-            'email' => $this->request->getPost('email'),
-            'password' => $this->request->getPost('password'),
-            'daerah' => $this->request->getPost('daerah'),
-            'jenis_kelamin' => $this->request->getPost('jenis_kelamin'),
-            'umur' => $this->request->getPost('umur'),
-            'role' => 'user'
-        ];
-
-        $userModel->insert($data);
-
-        session()->setFlashdata('success', 'Registrasi berhasil. Silakan login.');
-        return redirect()->to('/auth/login');
+        $model = new UserModel();
+        try {
+        if (!$model->insert([
+            'nama' => trim($this->request->getPost('nama')), 'username' => $this->request->getPost('username'),
+            'email' => strtolower(trim($this->request->getPost('email'))), 'password' => $this->request->getPost('password'),
+            'daerah' => 'Belum diatur', 'jenis_kelamin' => null, 'umur' => null, 'role' => 'user',
+        ])) {
+            return redirect()->to(base_url('auth/register'))->with('error', 'Akun belum berhasil dibuat. Silakan coba lagi.');
+        }
+        } catch (\Throwable $e) {
+            return redirect()->to(base_url('auth/register'))->with('error', 'Akun belum berhasil dibuat. Email atau nama pengguna mungkin sudah dipakai.');
+        }
+        return redirect()->to(base_url('auth/login'))->with('success', 'Akun berhasil dibuat. Silakan masuk.');
     }
 
     public function logout()
     {
         session()->destroy();
-        return redirect()->to('/auth/login');
+        return redirect()->to(base_url('/'));
     }
 }

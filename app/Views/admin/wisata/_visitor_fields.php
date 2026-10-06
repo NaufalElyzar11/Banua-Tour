@@ -1,0 +1,4 @@
+<fieldset class="border rounded p-3 mb-4"><legend class="h6 w-auto px-2">Informasi sebelum berkunjung</legend><p class="small text-muted">Isi berdasarkan informasi pengelola. Kolom kosong akan ditandai belum tersedia untuk pengunjung.</p>
+<?php foreach (['jam_buka' => 'Jam buka', 'fasilitas' => 'Fasilitas', 'akses_transportasi' => 'Akses & transportasi', 'aksesibilitas' => 'Kesesuaian untuk anak/lansia & aksesibilitas', 'ketentuan_tiket' => 'Ketentuan tiket, pembayaran & pembatalan', 'kontak_pengelola' => 'Kontak pengelola'] as $field => $label): ?>
+<div class="form-group"><label for="<?= $field ?>"><?= $label ?></label><textarea id="<?= $field ?>" name="<?= $field ?>" class="form-control" rows="2" maxlength="4000"><?= esc(old($field, $wisata[$field] ?? '') ?? '') ?></textarea></div>
+<?php endforeach; ?></fieldset>

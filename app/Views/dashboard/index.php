@@ -21,7 +21,7 @@
 
 <main>  <?php if (session()->getFlashdata('error')): ?>
     <div class="alert alert-danger alert-dismissible fade show mx-3 mt-3" role="alert">
-      <?= session()->getFlashdata('error') ?>
+      <?= esc(session()->getFlashdata('error')) ?>
       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
   <?php endif; ?>

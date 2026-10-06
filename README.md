@@ -1,68 +1,63 @@
-# CodeIgniter 4 Application Starter
+# BanuaTour
 
-## What is CodeIgniter?
+Aplikasi platform wisata Kalimantan Selatan dengan katalog publik, favorit (wishlist), pemesanan tiket kunjungan, ulasan terverifikasi, dan panel manajemen admin. Dibangun menggunakan CodeIgniter 4.7, PHP 8.2+, dan MySQL 8.
 
-CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.
-More information can be found at the [official site](https://codeigniter.com).
+---
 
-This repository holds a composer-installable app starter.
-It has been built from the
-[development repository](https://github.com/codeigniter4/CodeIgniter4).
+## 📌 Tentang Proyek & Atribusi (Project Lineage)
 
-More information about the plans for version 4 can be found in [CodeIgniter 4](https://forum.codeigniter.com/forumdisplay.php?fid=28) on the forums.
+Repositori ini merupakan **versi pembaruan mandiri (revamp, refactor, & security hardening)** dari proyek tugas kuliah:
 
-You can read the [user guide](https://codeigniter.com/user_guide/)
-corresponding to the latest version of the framework.
+* **Versi Awal (Proyek Kelompok UAS):**  
+  Aplikasi ini bermula dari tugas kelompok Ujian Akhir Semester (UAS) mata kuliah **Pemrograman Web II** yang dikerjakan secara kolaboratif bersama tim. Seluruh riwayat orisinal dan kontribusi tim tetap tersimpan dan diarsipkan di:  
+  👉 **[uas-web-ii (Original UAS Project)](https://github.com/NaufalElyzar11/uas-web-ii)**
 
-## Installation & updates
+* **Versi Saat Ini (Pengembangan Mandiri):**  
+  Pada versi ini, proyek dikembangkan lebih lanjut secara independen untuk meningkatkan kualitas, keandalan, dan kesiapan produksi:
+  * **Keamanan & Autentikasi:** Verifikasi role pengguna langsung dari database, penguatan proteksi CSRF, sanitasi input, rate limiting, serta hashing kata sandi aman (Bcrypt).
+  * **Integritas Transaksi & Tiket:** Perhitungan total harga dari server (bukan dari browser), audit log konfirmasi tiket acak, pencegahan konfirmasi ganda, serta validasi hak akses tiket kunjungan.
+  * **Peningkatan Panel Admin:** Manajemen lengkap untuk katalog destinasi, kategori, berita/artikel wisata, verifikasi pemesanan, serta manajemen pengguna.
+  * **Pengujian Otomatis (Automated Testing):** Penerapan *test suite* keamanan & regresi berbasis PHPUnit (SQLite in-memory).
 
-`composer create-project codeigniter4/appstarter` then `composer update` whenever
-there is a new release of the framework.
+---
 
-When updating, check the release notes to see if there are any changes you might need to apply
-to your `app` folder. The affected files can be copied or merged from
-`vendor/codeigniter4/framework/app`.
+## Menjalankan aplikasi
 
-## Setup
+1. Aktifkan MySQL dan siapkan `.env` dengan koneksi database serta `app.baseURL` lokal.
+2. Jalankan `composer install`.
+3. Untuk database yang sudah berisi data BanuaTour, jalankan `php spark app:upgrade`. Perintah membuat backup sebelum menjalankan migrasi. Jika backup gagal, migrasi dibatalkan.
+4. Jalankan `php spark serve --host 127.0.0.1 --port 8080`, lalu buka `http://localhost:8080`.
 
-Copy `env` to `.env` and tailor for your app, specifically the baseURL
-and any database settings.
+Gunakan PHP dengan ekstensi intl, mbstring, mysqli, GD, ZIP, DOM/XML, dan fileinfo. Untuk pengujian, aktifkan SQLite3.
 
-## Important Change with index.php
+Untuk instalasi baru, buat database kosong lalu impor `database/schema.sql`. File ini hanya berisi struktur tabel, tanpa akun, transaksi, atau data pribadi. Jalankan `php spark app:upgrade` setelah impor. Daftarkan akun melalui aplikasi, lalu administrator database dapat memberi role admin kepada akun yang dipilih. Tidak ada kredensial admin bawaan. Kategori awal dapat ditambahkan melalui SQL atau dataset yang sudah diperiksa; destinasi ditambahkan melalui panel admin.
 
-`index.php` is no longer in the root of the project! It has been moved inside the *public* folder,
-for better security and separation of components.
+`app/Database/LegacyMigrations` menyimpan prototipe lama yang tidak cocok dengan skema aktual. Folder ini sengaja tidak dijalankan oleh migrator. Jangan memindahkannya kembali ke folder migrasi aktif.
 
-This means that you should configure your web server to "point" to your project's *public* folder, and
-not to the project root. A better practice would be to configure a virtual host to point there. A poor practice would be to point your web server to the project root and expect to enter *public/...*, as the rest of your logic and the
-framework are exposed.
+## Alur transaksi
 
-**Please** read the user guide for a better explanation of how CI4 works!
+- Pesanan baru berstatus `upcoming` dan `unpaid`. Harga dihitung dari database, bukan dari total yang dikirim browser.
+- Admin memeriksa pembayaran yang benar-benar diterima, lalu memasukkan referensi pada panel Pesanan. Konfirmasi mencatat admin, waktu, referensi, dan kode tiket acak.
+- Tiket hanya dapat dibaca pemilik setelah pembayaran terverifikasi. Membuka tiket tidak mengubah status pesanan.
+- Admin menandai kunjungan selesai setelah tanggal kunjungan tercapai dan tiket diperiksa. Perubahan status serta audit dilakukan dalam satu transaksi database. Konfirmasi ganda ditolak.
+- Pengguna hanya dapat membatalkan pesanan yang belum dibayar. Permintaan refund untuk pesanan lunas masih ditangani pengelola; belum ada refund otomatis.
+- Arsip menyembunyikan pesanan dari daftar dan dapat dipulihkan. Data transaksi tidak dihapus.
+- Ulasan baru memerlukan kunjungan selesai dengan pembayaran terverifikasi.
 
-## Repository Management
+**Belum ada integrasi payment gateway.** Jangan menggunakan konfirmasi admin sebagai pengganti verifikasi pembayaran. Isi kontak pengelola, ketentuan tiket, jam buka, fasilitas, dan akses destinasi melalui panel admin sebelum menerima pemesanan publik. Nilai yang belum tersedia ditampilkan sebagai belum diinformasikan, tanpa data buatan.
 
-We use GitHub issues, in our main repository, to track **BUGS** and to track approved **DEVELOPMENT** work packages.
-We use our [forum](http://forum.codeigniter.com) to provide SUPPORT and to discuss
-FEATURE REQUESTS.
+Pesanan lama mendapat status pembayaran `unpaid`, termasuk yang sebelumnya bertanda selesai. Status lama tidak dianggap bukti pembayaran. Rekonsiliasi catatan lama terhadap bukti pembayaran sebelum mengaktifkan tiketnya; jangan menandai seluruh data lama sebagai lunas secara massal.
 
-This repository is a "distribution" one, built by our release preparation script.
-Problems with it can be raised on our forum, or as issues in the main repository.
+## Pemeriksaan
 
-## Server Requirements
+```sh
+composer validate --strict
+composer audit
+php vendor/bin/phpunit --no-coverage
+```
 
-PHP version 8.1 or higher is required, with the following extensions installed:
+Tes keamanan menggunakan SQLite dalam memori dan menolak koneksi selain database pengujian tersebut. Cakupan: CSRF, role terbaru dari database, kepemilikan tiket, transaksi dan rollback, replay pesanan/pembayaran, tanggal dan jumlah, harga dari server, escaping pencarian, pagination, registrasi, hashing, rate limit, profil, ulasan, serta normalisasi gambar dan impor XLSX. Tes Selenium lama bersifat terpisah dan tidak otomatis dijalankan terhadap database lokal.
 
-- [intl](http://php.net/manual/en/intl.requirements.php)
-- [mbstring](http://php.net/manual/en/mbstring.installation.php)
+## Produksi
 
-> [!WARNING]
-> - The end of life date for PHP 7.4 was November 28, 2022.
-> - The end of life date for PHP 8.0 was November 26, 2023.
-> - If you are still using PHP 7.4 or 8.0, you should upgrade immediately.
-> - The end of life date for PHP 8.1 will be December 31, 2025.
-
-Additionally, make sure that the following extensions are enabled in your PHP:
-
-- json (enabled by default - don't turn it off)
-- [mysqlnd](http://php.net/manual/en/mysqlnd.install.php) if you plan to use MySQL
-- [libcurl](http://php.net/manual/en/curl.requirements.php) if you plan to use the HTTP\CURLRequest library
+Lihat `docs/DEPLOYMENT.md` dan `production.env.example`. Arahkan document root ke `public/`, gunakan HTTPS dan pengguna database khusus. Jangan menggunakan `spark serve`, akun database root, atau environment development untuk layanan publik.

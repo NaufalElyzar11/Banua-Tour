@@ -7,145 +7,74 @@ use App\Models\KategoriModel;
 
 class Profile extends BaseController
 {
-    protected $userModel;
-    protected $kategoriModel;
-
-    public function __construct()
-    {
-        if (!session()->get('isLoggedIn')) {
-            header('Location: ' . base_url('auth/login'));
-            exit();
-        }
-
-        $this->userModel = new UserModel();
-        $this->kategoriModel = new KategoriModel();
-    }
-
     public function index()
     {
-        $userId = session()->get('user_id');
-        $userData = $this->userModel->find($userId);
-
-        $userPreferences = $this->userModel->db->table('minat_user')
-            ->select('kategori.kategori_id, kategori.nama_kategori')
-            ->join('kategori', 'kategori.kategori_id = minat_user.kategori_id')
-            ->where('minat_user.user_id', $userId)
-            ->get()
-            ->getResultArray();
-
-        $allCategories = $this->kategoriModel->findAll();
-
-        $data = [
-            'title' => 'Profil Pengguna',
-            'user' => [
-                'user_id' => $userId,
-                'nama' => $userData['nama'] ?? session()->get('nama'),
-                'email' => $userData['email'] ?? session()->get('email'),
-                'username' => $userData['username'] ?? session()->get('username'),
-                'role' => $userData['role'] ?? session()->get('role'),
-                'daerah' => $userData['daerah'] ?? 'Indonesia'
-            ],
-            'userPreferences' => array_column($userPreferences, 'kategori_id'),
-            'userPreferencesData' => $userPreferences,
-            'allCategories' => $allCategories,
-            'userData' => $userData
-        ];
-
-        return view('user/profile', $data);
+        $user = (new UserModel())->find(session('user_id'));
+        return view('user/profile', [
+            'title' => 'Profil dan preferensi', 'user' => $user,
+            'userPreferences' => array_column(db_connect()->table('minat_user')->where('user_id', session('user_id'))->get()->getResultArray(), 'kategori_id'),
+            'allCategories' => (new KategoriModel())->findAll(),
+        ]);
     }
 
     public function update()
     {
-        $userId = session()->get('user_id');
-
-        $rules = [
-            'nama' => 'required',
-            'email' => 'required|valid_email',
-            'daerah' => 'required',
-            'jenis_kelamin' => 'permit_empty',
-            'umur' => 'permit_empty|numeric'
+        $id = (int) session('user_id');
+        if (!$this->validate([
+            'nama' => 'required|min_length[2]|max_length[100]',
+            'username' => "required|min_length[3]|max_length[50]|alpha_dash|is_unique[users.username,user_id,{$id}]",
+            'email' => "required|valid_email|max_length[254]|is_unique[users.email,user_id,{$id}]",
+            'daerah' => 'permit_empty|max_length[100]',
+        ])) return redirect()->to(base_url('profile'))->with('error', 'Periksa nama, email, dan nama pengguna. Email/nama pengguna harus belum dipakai akun lain.');
+        $data = [
+            'nama' => trim($this->request->getPost('nama')), 'username' => $this->request->getPost('username'),
+            'email' => strtolower(trim($this->request->getPost('email'))),
+            'daerah' => trim($this->request->getPost('daerah') ?? '') ?: 'Belum diatur',
         ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('error', 'Data profil tidak valid. Periksa kembali input Anda.');
-        }
-
-        $updateData = [
-            'nama' => $this->request->getPost('nama'),
-            'email' => $this->request->getPost('email'),
-            'daerah' => $this->request->getPost('daerah'),
-            'jenis_kelamin' => $this->request->getPost('jenis_kelamin'),
-            'umur' => $this->request->getPost('umur')
-        ];
-
         try {
-            $this->userModel->update($userId, $updateData);
-
-            $newSessionData = [
-                'nama' => $updateData['nama'],
-                'email' => $updateData['email'],
-                'daerah' => $updateData['daerah']
-            ];
-            session()->set($newSessionData);
-
-            return redirect()->to('profile')->with('success', 'Profil berhasil diperbarui.');
-        } catch (\Exception $e) {
-            log_message('error', 'Error updating profile: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Terjadi kesalahan saat memperbarui profil.');
+            if (!(new UserModel())->update($id, $data)) throw new \RuntimeException('Profil belum tersimpan.');
+            session()->set($data);
+            return redirect()->to(base_url('profile'))->with('success', 'Profil berhasil diperbarui.');
+        } catch (\Throwable $e) {
+            log_message('error', 'Profile update failed for user {id}', ['id' => $id]);
+            return redirect()->to(base_url('profile'))->with('error', 'Profil belum tersimpan. Email atau nama pengguna mungkin sudah dipakai.');
         }
     }
 
     public function updatePreferences()
     {
-        $userId = session()->get('user_id');
-
-        $kategori_ids = $this->request->getPost('kategori_ids');
-
-        if (empty($kategori_ids)) {
-            $this->userModel->db->table('minat_user')->where('user_id', $userId)->delete();
-            return redirect()->to('profile')->with('success', 'Preferensi wisata berhasil diperbarui.');
+        $selected = $this->request->getPost('kategori_ids') ?? [];
+        $valid = array_map('strval', array_column((new KategoriModel())->findAll(), 'kategori_id'));
+        if (!is_array($selected) || count($selected) > count($valid)) return redirect()->to(base_url('profile'))->with('error', 'Pilihan kategori tidak valid.');
+        foreach ($selected as $id) {
+            if (!is_scalar($id) || !in_array((string) $id, $valid, true)) return redirect()->to(base_url('profile'))->with('error', 'Kategori tidak ditemukan.');
         }
-
-        $this->userModel->db->table('minat_user')->where('user_id', $userId)->delete();
-
-        foreach ($kategori_ids as $kategori_id) {
-            $this->userModel->db->table('minat_user')->insert([
-                'user_id' => $userId,
-                'kategori_id' => $kategori_id
-            ]);
+        $db = db_connect();
+        $db->transBegin();
+        try {
+            $db->table('minat_user')->where('user_id', session('user_id'))->delete();
+            foreach (array_unique($selected) as $id) $db->table('minat_user')->insert(['user_id' => session('user_id'), 'kategori_id' => $id]);
+            if (!$db->transStatus()) throw new \RuntimeException('Preferensi belum tersimpan.');
+            $db->transCommit();
+            return redirect()->to(base_url('profile'))->with('success', 'Preferensi wisata berhasil diperbarui.');
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            return redirect()->to(base_url('profile'))->with('error', 'Preferensi belum tersimpan. Silakan coba lagi.');
         }
-
-        return redirect()->to('profile')->with('success', 'Preferensi wisata berhasil diperbarui.');
     }
 
     public function changePassword()
     {
-        $userId = session()->get('user_id');
-
-        $rules = [
-            'current_password' => 'required',
-            'new_password' => 'required|min_length[6]',
-            'confirm_password' => 'required|matches[new_password]'
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('error', 'Password tidak valid. Periksa kembali input Anda.');
-        }
-
-        $user = $this->userModel->find($userId);
-        if (!password_verify($this->request->getPost('current_password'), $user['password'])) {
-            return redirect()->back()->with('error', 'Password saat ini tidak cocok.');
-        }
-
-        try {
-            $this->userModel->update($userId, [
-                'password' => $this->request->getPost('new_password')
-            ]);
-
-            return redirect()->to('profile')->with('success', 'Password berhasil diubah.');
-        } catch (\Exception $e) {
-            log_message('error', 'Error changing password: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Terjadi kesalahan saat mengubah password.');
-        }
+        if (!$this->validate([
+            'current_password' => 'required|max_length[1024]',
+            'new_password' => 'required|min_length[12]|max_length[72]',
+            'confirm_password' => 'required|matches[new_password]',
+        ])) return redirect()->to(base_url('profile'))->with('error', 'Kata sandi baru harus 12–72 karakter dan konfirmasinya harus sama.');
+        $model = new UserModel();
+        $user = $model->find(session('user_id'));
+        if (!$user || !password_verify($this->request->getPost('current_password'), $user['password'])) return redirect()->to(base_url('profile'))->with('error', 'Kata sandi saat ini tidak cocok.');
+        if (!$model->update($user['user_id'], ['password' => $this->request->getPost('new_password')])) return redirect()->to(base_url('profile'))->with('error', 'Kata sandi belum berhasil diubah.');
+        session()->regenerate(true);
+        return redirect()->to(base_url('profile'))->with('success', 'Kata sandi berhasil diubah.');
     }
 }

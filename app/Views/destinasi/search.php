@@ -5,11 +5,11 @@
 <link rel="stylesheet" href="<?= base_url('css/destinasi.css') ?>">
 
 <div class="container mt-4">
-    <h1 class="mb-4"><?= $title ?></h1>
+    <h1 class="mb-4"><?= esc($title) ?></h1>
 
     <div class="search-container mb-4">
         <form action="<?= base_url('destinasi/search') ?>" method="get" class="search-form">
-            <input type="text" name="keyword" placeholder="Cari destinasi wisata..." value="<?= $keyword ?? '' ?>" required>
+            <input type="search" name="keyword" aria-label="Cari destinasi wisata" placeholder="Cari destinasi wisata..." value="<?= esc($keyword ?? '', 'attr') ?>" maxlength="100">
             <button type="submit"><i class="fas fa-search"></i> Cari</button>
         </form>
     </div>
